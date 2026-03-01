@@ -284,14 +284,18 @@ app.post('/api/message', (req, res) => {
         timestamp: Date.now()
     };
     customMessageTime = Date.now();
-    customMessageDuration = Math.max(5000, Math.min(300000, (parseInt(duration) || 30) * 1000));
+    const durationVal = parseInt(duration);
+    // 0 = ללא הגבלה (שנה אחת), אחרת מינימום 5 שניות
+    customMessageDuration = durationVal === 0 ? 365 * 24 * 60 * 60 * 1000 : Math.max(5000, durationVal * 1000);
     
     console.log('📢 הודעה מותאמת נשלחה:', title || content);
     
+    const durationText = durationVal === 0 ? 'ללא הגבלה' : (customMessageDuration / 1000) + ' שניות';
     res.json({
         success: true,
         message: 'ההודעה נשלחה בהצלחה',
-        duration: customMessageDuration / 1000
+        duration: durationVal === 0 ? 'unlimited' : customMessageDuration / 1000,
+        durationText: durationText
     });
 });
 
@@ -394,6 +398,12 @@ app.get('/', (req, res) => {
                             <option value="60">דקה</option>
                             <option value="120">2 דקות</option>
                             <option value="300">5 דקות</option>
+                            <option value="600">10 דקות</option>
+                            <option value="900">15 דקות</option>
+                            <option value="1800">30 דקות</option>
+                            <option value="3600">שעה</option>
+                            <option value="7200">שעתיים</option>
+                            <option value="0">ללא הגבלה (עד ביטול ידני)</option>
                         </select>
                     </div>
                 </div>
@@ -474,9 +484,7 @@ app.get('/', (req, res) => {
                     const data = await res.json();
                     
                     if (data.success) {
-                        document.getElementById('messageStatus').innerHTML = '<div class="status ok">✅ ' + data.message + ' (ל-' + data.duration + ' שניות)</div>';
-                        document.getElementById('msgTitle').value = '';
-                        document.getElementById('msgContent').value = '';
+                        document.getElementById('messageStatus').innerHTML = '<div class="status ok">✅ ' + data.message + ' (' + data.durationText + ')</div>';
                     } else {
                         document.getElementById('messageStatus').innerHTML = '<div class="status alert">❌ ' + data.error + '</div>';
                     }
