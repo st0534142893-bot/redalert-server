@@ -158,7 +158,27 @@ function checkAlerts() {
 app.get('/api/alert', (req, res) => {
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
+    const showAll = req.query.all === '1';
     const now = Date.now();
+    
+    // אם מבקשים את כל ההתראות
+    if (showAll) {
+        const hasAlerts = currentAlerts && 
+                         (now - currentAlertsTime) < ALERT_DISPLAY_DURATION &&
+                         currentAlerts.cities && currentAlerts.cities.length > 0;
+        return res.json({
+            hasJerusalemAlert: hasAlerts,
+            hasAlert: hasAlerts,
+            allAlerts: hasAlerts ? currentAlerts.cities : [],
+            alert: hasAlerts ? {
+                type: currentAlerts.type,
+                cities: currentAlerts.cities,
+                instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+            } : null,
+            lastCheck: new Date().toISOString(),
+            serverRunning: true
+        });
+    }
     
     // אם אין קואורדינטות, החזר סטטוס בסיסי
     if (isNaN(lat) || isNaN(lng)) {
