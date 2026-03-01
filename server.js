@@ -237,6 +237,7 @@ app.get('/api/alert', (req, res) => {
 app.get('/api/test', (req, res) => {
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
+    const testAll = req.query.all === '1';
     
     let testCity = 'האזור שלך';
     if (!isNaN(lat) && !isNaN(lng)) {
@@ -244,19 +245,28 @@ app.get('/api/test', (req, res) => {
         if (nearest) testCity = nearest.city;
     }
     
+    // אם מבקשים טסט לכל הערים - הוסף רשימת ערים לדוגמה
+    let testCities;
+    if (testAll) {
+        testCities = [testCity, 'תל אביב - מרכז העיר', 'חיפה', 'באר שבע', 'אשדוד', 'נתניה', 'ראשון לציון'];
+    } else {
+        testCities = [testCity];
+    }
+    
     currentAlerts = {
         type: 'missiles',
-        cities: [testCity],
+        cities: testCities,
         instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
     };
     currentAlertsTime = Date.now();
     
-    console.log('🧪 התראת טסט הופעלה עבור:', testCity);
+    console.log('🧪 התראת טסט הופעלה עבור:', testCities.join(', '));
     
     res.json({
         success: true,
         message: 'התראת טסט הופעלה ל-30 שניות',
-        city: testCity
+        city: testCity,
+        cities: testCities
     });
 });
 
@@ -369,6 +379,7 @@ app.get('/', (req, res) => {
                 <div>
                     <button class="btn green" onclick="getLocation()">📍 זהה מיקום</button>
                     <button class="btn" onclick="testAlert()">🧪 התראת טסט</button>
+                    <button class="btn" onclick="testAlertAll()" style="background:#9333ea;">🧪 טסט כל הערים</button>
                     <button class="btn secondary" onclick="checkAlert()">🔍 בדוק התראות</button>
                 </div>
                 
@@ -464,6 +475,16 @@ app.get('/', (req, res) => {
                     const res = await fetch('/api/test?lat=' + userLat + '&lng=' + userLng);
                     const data = await res.json();
                     document.getElementById('result').innerHTML = '<div class="status alert">🧪 ' + data.message + '<br>עיר: ' + data.city + '</div>';
+                }
+                
+                async function testAlertAll() {
+                    if (!userLat || !userLng) {
+                        document.getElementById('result').innerHTML = '<div class="status info">📍 יש לזהות מיקום קודם</div>';
+                        return;
+                    }
+                    const res = await fetch('/api/test?lat=' + userLat + '&lng=' + userLng + '&all=1');
+                    const data = await res.json();
+                    document.getElementById('result').innerHTML = '<div class="status alert">🧪 ' + data.message + '<br>ערים: ' + (data.cities || []).join(', ') + '</div>';
                 }
                 
                 async function sendMessage() {
