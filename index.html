@@ -2154,7 +2154,6 @@
     }
     
     function checkCustomMessage() {
-        if (!liveViewSettings.emergencyAlertsEnabled) return;
         const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
         
         fetch(base + '/api/message', { credentials: 'omit' })
@@ -2177,7 +2176,6 @@
         if (customMessageInterval) clearInterval(customMessageInterval);
         customMessageInterval = null;
         hideCustomMessageBanner();
-        if (!liveViewSettings.emergencyAlertsEnabled) return;
         checkCustomMessage();
         customMessageInterval = setInterval(checkCustomMessage, 5000); // בדוק כל 5 שניות
     }
