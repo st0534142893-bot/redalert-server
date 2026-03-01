@@ -751,10 +751,10 @@
                 <div class="liveview-setting-group">
                     <h4>התראות חירום (פיקוד העורף)</h4>
                     <div class="liveview-setting-row"><label>הפעל התראות חירום:</label><label class="switch"><input type="checkbox" id="lvEmergencyAlertsEnabled"><span class="switch-slider"></span></label></div>
+                    <div class="liveview-setting-row"><label>סוג התראות:</label><select id="lvEmergencyAlertsMode"><option value="location">רק באזור שלי (לפי מיקום)</option><option value="all">כל ההתראות בארץ</option></select></div>
                     <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
                         <label>כתובת שרת:</label>
                         <input type="text" id="lvEmergencyAlertsApiUrl" value="https://redalert-server-production.up.railway.app" style="padding: 8px; border-radius: 8px; font-size: 14px;">
-                        <span style="font-size: 12px; color: var(--muted);">התראות יופיעו רק כשיש צבע אדום באזור שלך (לפי מיקום המכשיר)</span>
                     </div>
                     <div class="liveview-setting-row"><label>בדיקה כל (שניות):</label><select id="lvEmergencyCheckInterval"><option value="15">15 שניות</option><option value="30" selected>30 שניות</option><option value="60">דקה</option><option value="90">דקה וחצי</option><option value="120">2 דקות</option></select></div>
                     <div class="liveview-setting-row"><label>משך הצגה (שניות):</label><select id="lvEmergencyDisplayDuration"><option value="30" selected>חצי דקה</option><option value="45">45 שניות</option><option value="60">דקה</option></select></div>
@@ -860,6 +860,7 @@
             tvModeEnabled: false,
             emergencyAlertsEnabled: true,
             emergencyAlertsApiUrl: 'https://redalert-server-production.up.railway.app',
+            emergencyAlertsMode: 'location',
             emergencyCheckIntervalSeconds: 30,
             emergencyDisplayDurationSeconds: 30,
             ...liveViewSettings
@@ -1733,6 +1734,7 @@
         set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
         set('lvUpdateType', s.updateType || 'all');
         setCheck('lvEmergencyAlertsEnabled', s.emergencyAlertsEnabled);
+        set('lvEmergencyAlertsMode', s.emergencyAlertsMode || 'location');
         set('lvEmergencyAlertsApiUrl', s.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app');
         set('lvEmergencyCheckInterval', String(s.emergencyCheckIntervalSeconds || 30));
         set('lvEmergencyDisplayDuration', String(s.emergencyDisplayDurationSeconds || 30));
@@ -1794,6 +1796,7 @@
             updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
             updateType: document.getElementById('lvUpdateType')?.value || 'all',
             emergencyAlertsEnabled: !!document.getElementById('lvEmergencyAlertsEnabled')?.checked,
+            emergencyAlertsMode: document.getElementById('lvEmergencyAlertsMode')?.value || 'location',
             emergencyAlertsApiUrl: (document.getElementById('lvEmergencyAlertsApiUrl')?.value || '').trim() || 'https://redalert-server-production.up.railway.app',
             emergencyCheckIntervalSeconds: parseInt(document.getElementById('lvEmergencyCheckInterval')?.value) || 30,
             emergencyDisplayDurationSeconds: parseInt(document.getElementById('lvEmergencyDisplayDuration')?.value) || 30
@@ -2036,15 +2039,29 @@
     function checkEmergencyAlert() {
         if (!liveViewSettings.emergencyAlertsEnabled) return;
         const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
+        const mode = liveViewSettings.emergencyAlertsMode || 'location';
         let url = base + '/api/alert';
         
-        if (userLocation.lat && userLocation.lng) {
+        // אם מצב "רק באזור שלי" - שלח קואורדינטות
+        if (mode === 'location' && userLocation.lat && userLocation.lng) {
             url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        // אם מצב "כל ההתראות" - בקש את כל ההתראות
+        if (mode === 'all') {
+            url += '?all=1';
         }
         
         fetch(url, { credentials: 'omit' }).then(r => r.json()).then(data => {
-            if (data.hasJerusalemAlert && data.alert) showEmergencyBanner(data.alert);
-            else hideEmergencyBanner();
+            if (mode === 'all' && data.allAlerts && data.allAlerts.length > 0) {
+                showEmergencyBanner({
+                    cities: data.allAlerts,
+                    instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+                });
+            } else if (data.hasJerusalemAlert && data.alert) {
+                showEmergencyBanner(data.alert);
+            } else {
+                hideEmergencyBanner();
+            }
         }).catch(() => {});
     }
     function startEmergencyAlertsInterval() {
