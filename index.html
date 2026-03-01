@@ -1009,24 +1009,35 @@
         const needsRecruiters = updateType === 'all' || updateType === 'nedarim';
         const needsSheet = updateType === 'all' || updateType === 'sheet';
 
+        console.log('📊 טוען נתונים... סוג עדכון:', updateType);
+
         const promises = [];
-        if (needsTotal) promises.push(fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(() => ({ success: false })));
+        if (needsTotal) promises.push(fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(e => { console.error('❌ שגיאה בטעינת סכום:', e); return { success: false }; }));
         else promises.push(Promise.resolve({ success: false }));
-        if (needsRecruiters) promises.push(fetchApi(url, { action: 'getAllNedarimRecruiters', light: '1', _: Date.now() }, { timeout: 60000 }).catch(() => ({ success: false })));
+        if (needsRecruiters) promises.push(fetchApi(url, { action: 'getAllNedarimRecruiters', light: '1', _: Date.now() }, { timeout: 60000 }).catch(e => { console.error('❌ שגיאה בטעינת מתרימים:', e); return { success: false }; }));
         else promises.push(Promise.resolve({ recruiters: [] }));
-        if (needsSheet) promises.push(fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 25000 }).catch(() => ({ success: false })));
+        if (needsSheet) promises.push(fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 25000 }).catch(e => { console.error('❌ שגיאה בטעינת גליון:', e); return { success: false }; }));
         else promises.push(Promise.resolve({ donors: [], groups: [] }));
 
         const [totalRes, recruitersRes, sheetRes] = await Promise.all(promises);
 
+        console.log('📈 תוצאת סכום:', totalRes);
+        console.log('👥 תוצאת מתרימים:', recruitersRes);
+        console.log('📋 תוצאת גליון:', sheetRes);
+
         if (totalRes.success && totalRes.totalDonated !== undefined) {
             totalDonated = parseInt(totalRes.totalDonated) || 0;
             goal = parseInt(totalRes.goal) || 0;
+            console.log('✅ סכום כללי:', totalDonated, 'יעד:', goal);
         }
 
         const recruiters = (recruitersRes.recruiters || (Array.isArray(recruitersRes) ? recruitersRes : [])) || [];
         const sheetDonors = (sheetRes.donors || []);
         const sheetGroups = (sheetRes.groups || []);
+        
+        console.log('👥 מספר מתרימים מנדרים:', recruiters.length);
+        console.log('📋 מספר מתרימים מגליון:', sheetDonors.length);
+        console.log('📁 מספר קבוצות:', sheetGroups.length);
 
         const recruiterMap = new Map();
         recruiters.forEach(r => {
@@ -1035,6 +1046,20 @@
             const name = (r.Name || r.name || '').trim();
             if (id != null && name) recruiterMap.set(String(id), { name, amount });
         });
+        
+        // גם מפה לפי שם לגיבוי
+        const recruiterByName = new Map();
+        recruiters.forEach(r => {
+            const amount = parseInt(r.Cumule) || parseInt(r.Amount) || 0;
+            const name = (r.Name || r.name || '').trim();
+            if (name && amount > 0) recruiterByName.set(name, amount);
+        });
+        
+        console.log('🔗 מפת מתרימים לפי ID:', recruiterMap.size, 'רשומות');
+        console.log('🔗 מפת מתרימים לפי שם:', recruiterByName.size, 'רשומות');
+        if (recruiters.length > 0) {
+            console.log('📝 דוגמה למתרים מנדרים:', recruiters[0]);
+        }
 
         if (updateType === 'sheet' && sheetDonors.length > 0 && sheetGroups.length > 0) {
             groups = sheetGroups;
@@ -1050,11 +1075,26 @@
             donors = donors.map(normalizeDonorGroup).filter(Boolean);
         } else if ((updateType === 'all') && sheetDonors.length > 0 && sheetGroups.length > 0) {
             groups = sheetGroups;
+            let matchedById = 0, matchedByName = 0, notMatched = 0;
             donors = sheetDonors.map(d => {
                 const matrimId = d.nedarimMatrimId ? String(d.nedarimMatrimId).trim() : null;
-                const rec = matrimId && recruiterMap.has(matrimId) ? recruiterMap.get(matrimId) : null;
+                const donorName = (d.displayName || d.name || '').trim();
+                
+                // נסה להתאים לפי ID
+                let rec = matrimId && recruiterMap.has(matrimId) ? recruiterMap.get(matrimId) : null;
+                
+                // אם לא נמצא לפי ID, נסה לפי שם
+                if (!rec && donorName && recruiterByName.has(donorName)) {
+                    rec = { name: donorName, amount: recruiterByName.get(donorName) };
+                    matchedByName++;
+                } else if (rec) {
+                    matchedById++;
+                } else {
+                    notMatched++;
+                }
+                
                 const amount = rec ? rec.amount : (parseInt(d.amount) || 0);
-                const name = (d.displayName || d.name || '').trim() || (rec ? rec.name : '');
+                const name = donorName || (rec ? rec.name : '');
                 const personalGoal = Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL));
                 return {
                     id: d.id,
@@ -1067,18 +1107,22 @@
                 };
             });
             donors = donors.map(normalizeDonorGroup).filter(Boolean);
-            const byName = new Map();
-            recruiters.forEach(r => {
-                const name = (r.Name || r.name || '').trim();
-                const amount = parseInt(r.Cumule) || parseInt(r.Amount) || 0;
-                if (name && !byName.has(name)) byName.set(name, amount);
-            });
+            
+            // עדכון נוסף לפי שם למי שעדיין 0
             donors.forEach(d => {
-                if (d.amount === 0 && d.name) {
-                    const amt = byName.get(d.name);
-                    if (amt != null) d.amount = amt;
+                if (d.amount === 0 && d.name && recruiterByName.has(d.name)) {
+                    d.amount = recruiterByName.get(d.name);
+                    matchedByName++;
                 }
             });
+            
+            console.log('✅ התאמות לפי ID:', matchedById);
+            console.log('✅ התאמות לפי שם:', matchedByName);
+            console.log('⚠️ לא הותאמו:', notMatched);
+            
+            // חשב סכום כולל מהמתרימים
+            const totalFromDonors = donors.reduce((sum, d) => sum + (d.amount || 0), 0);
+            console.log('💰 סכום כולל ממתרימים:', totalFromDonors);
         } else {
             groups = [];
             donors = recruiters.map((r, i) => ({
@@ -2342,12 +2386,28 @@
             });
     }
 
+    // פונקציה לרענון ידני - ניתן להפעיל מהקונסול
+    async function forceRefresh() {
+        console.log('🔄 מתחיל רענון ידני...');
+        try {
+            await loadData();
+            render();
+            console.log('✅ רענון הושלם בהצלחה!');
+            console.log('📊 סכום כולל:', totalDonated);
+            console.log('🎯 יעד:', goal);
+            console.log('👥 מספר מתרימים:', donors.length);
+        } catch (e) {
+            console.error('❌ שגיאה ברענון:', e);
+        }
+    }
+
     window.toggleLiveViewFullscreen = toggleLiveViewFullscreen;
     window.openLiveViewSettings = openLiveViewSettings;
     window.closeLiveViewSettings = closeLiveViewSettings;
     window.saveLiveViewSettingsFromPanel = saveLiveViewSettingsFromPanel;
     window.testEmergencyConnection = testEmergencyConnection;
     window.testEmergencyAlert = testEmergencyAlert;
+    window.forceRefresh = forceRefresh;
 
     init();
 })();
