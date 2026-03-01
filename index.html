@@ -1004,97 +1004,37 @@
         const url = sheetUrl;
         if (!url) throw new Error('נא להגדיר כתובת Web App. פתח את הקובץ הראשי והגדר בהגדרות סנכרון.');
 
-        const updateType = liveViewSettings.updateType || 'all';
-        const needsTotal = updateType === 'all' || updateType === 'nedarim' || updateType === 'sheet';
-        const needsRecruiters = updateType === 'all' || updateType === 'nedarim';
-        const needsSheet = updateType === 'all' || updateType === 'sheet';
+        console.log('📊 טוען נתונים...');
 
-        console.log('📊 טוען נתונים... סוג עדכון:', updateType);
+        // טען סכום כללי וגליון
+        const promises = [
+            fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(e => { console.error('❌ שגיאה בטעינת סכום:', e); return { success: false }; }),
+            fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 30000 }).catch(e => { console.error('❌ שגיאה בטעינת גליון:', e); return { success: false }; })
+        ];
 
-        const promises = [];
-        if (needsTotal) promises.push(fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(e => { console.error('❌ שגיאה בטעינת סכום:', e); return { success: false }; }));
-        else promises.push(Promise.resolve({ success: false }));
-        if (needsRecruiters) promises.push(fetchApi(url, { action: 'getAllNedarimRecruiters', light: '1', _: Date.now() }, { timeout: 60000 }).catch(e => { console.error('❌ שגיאה בטעינת מתרימים:', e); return { success: false }; }));
-        else promises.push(Promise.resolve({ recruiters: [] }));
-        if (needsSheet) promises.push(fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 25000 }).catch(e => { console.error('❌ שגיאה בטעינת גליון:', e); return { success: false }; }));
-        else promises.push(Promise.resolve({ donors: [], groups: [] }));
-
-        const [totalRes, recruitersRes, sheetRes] = await Promise.all(promises);
+        const [totalRes, sheetRes] = await Promise.all(promises);
 
         console.log('📈 תוצאת סכום:', totalRes);
-        console.log('👥 תוצאת מתרימים:', recruitersRes);
         console.log('📋 תוצאת גליון:', sheetRes);
 
+        // עדכן סכום כללי
         if (totalRes.success && totalRes.totalDonated !== undefined) {
             totalDonated = parseInt(totalRes.totalDonated) || 0;
             goal = parseInt(totalRes.goal) || 0;
-            console.log('✅ סכום כללי:', totalDonated, 'יעד:', goal);
+            console.log('✅ סכום כללי מנדרים:', totalDonated, 'יעד:', goal);
         }
 
-        const recruiters = (recruitersRes.recruiters || (Array.isArray(recruitersRes) ? recruitersRes : [])) || [];
         const sheetDonors = (sheetRes.donors || []);
         const sheetGroups = (sheetRes.groups || []);
         
-        console.log('👥 מספר מתרימים מנדרים:', recruiters.length);
         console.log('📋 מספר מתרימים מגליון:', sheetDonors.length);
         console.log('📁 מספר קבוצות:', sheetGroups.length);
 
-        const recruiterMap = new Map();
-        recruiters.forEach(r => {
-            const id = r.Id || r.MatrimId || r.id || r.MatrimNumber;
-            const amount = parseInt(r.Cumule) || parseInt(r.Amount) || 0;
-            const name = (r.Name || r.name || '').trim();
-            if (id != null && name) recruiterMap.set(String(id), { name, amount });
-        });
-        
-        // גם מפה לפי שם לגיבוי
-        const recruiterByName = new Map();
-        recruiters.forEach(r => {
-            const amount = parseInt(r.Cumule) || parseInt(r.Amount) || 0;
-            const name = (r.Name || r.name || '').trim();
-            if (name && amount > 0) recruiterByName.set(name, amount);
-        });
-        
-        console.log('🔗 מפת מתרימים לפי ID:', recruiterMap.size, 'רשומות');
-        console.log('🔗 מפת מתרימים לפי שם:', recruiterByName.size, 'רשומות');
-        if (recruiters.length > 0) {
-            console.log('📝 דוגמה למתרים מנדרים:', recruiters[0]);
-        }
-
-        if (updateType === 'sheet' && sheetDonors.length > 0 && sheetGroups.length > 0) {
+        if (sheetDonors.length > 0 && sheetGroups.length > 0) {
             groups = sheetGroups;
-            donors = sheetDonors.map(d => ({
-                id: d.id,
-                name: (d.displayName || d.name || '').trim(),
-                displayName: d.displayName || d.name || '',
-                amount: parseInt(d.amount) || 0,
-                groupId: d.groupId,
-                groupName: (d.groupName || d.group || '').toString().trim(),
-                personalGoal: Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL))
-            }));
-            donors = donors.map(normalizeDonorGroup).filter(Boolean);
-        } else if ((updateType === 'all') && sheetDonors.length > 0 && sheetGroups.length > 0) {
-            groups = sheetGroups;
-            let matchedById = 0, matchedByName = 0, notMatched = 0;
             donors = sheetDonors.map(d => {
-                const matrimId = d.nedarimMatrimId ? String(d.nedarimMatrimId).trim() : null;
-                const donorName = (d.displayName || d.name || '').trim();
-                
-                // נסה להתאים לפי ID
-                let rec = matrimId && recruiterMap.has(matrimId) ? recruiterMap.get(matrimId) : null;
-                
-                // אם לא נמצא לפי ID, נסה לפי שם
-                if (!rec && donorName && recruiterByName.has(donorName)) {
-                    rec = { name: donorName, amount: recruiterByName.get(donorName) };
-                    matchedByName++;
-                } else if (rec) {
-                    matchedById++;
-                } else {
-                    notMatched++;
-                }
-                
-                const amount = rec ? rec.amount : (parseInt(d.amount) || 0);
-                const name = donorName || (rec ? rec.name : '');
+                const amount = parseInt(d.amount) || 0;
+                const name = (d.displayName || d.name || '').trim();
                 const personalGoal = Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL));
                 return {
                     id: d.id,
@@ -1108,31 +1048,30 @@
             });
             donors = donors.map(normalizeDonorGroup).filter(Boolean);
             
-            // עדכון נוסף לפי שם למי שעדיין 0
-            donors.forEach(d => {
-                if (d.amount === 0 && d.name && recruiterByName.has(d.name)) {
-                    d.amount = recruiterByName.get(d.name);
-                    matchedByName++;
-                }
-            });
-            
-            console.log('✅ התאמות לפי ID:', matchedById);
-            console.log('✅ התאמות לפי שם:', matchedByName);
-            console.log('⚠️ לא הותאמו:', notMatched);
-            
             // חשב סכום כולל מהמתרימים
             const totalFromDonors = donors.reduce((sum, d) => sum + (d.amount || 0), 0);
-            console.log('💰 סכום כולל ממתרימים:', totalFromDonors);
-        } else {
+            console.log('💰 סכום כולל ממתרימים בגליון:', totalFromDonors);
+            
+            // אם אין סכום מנדרים, השתמש בסכום מהגליון
+            if (totalDonated === 0) {
+                totalDonated = totalFromDonors;
+            }
+        } else if (sheetDonors.length > 0) {
+            // יש מתרימים בלי קבוצות
             groups = [];
-            donors = recruiters.map((r, i) => ({
-                id: 'r' + i,
-                name: (r.Name || r.name || '').trim(),
-                displayName: (r.Name || r.name || '').trim(),
-                amount: parseInt(r.Cumule) || parseInt(r.Amount) || 0,
+            donors = sheetDonors.map(d => ({
+                id: d.id,
+                name: (d.displayName || d.name || '').trim(),
+                displayName: d.displayName || d.name || '',
+                amount: parseInt(d.amount) || 0,
                 groupId: null,
+                groupName: '',
                 personalGoal: DEFAULT_DONOR_GOAL
             })).filter(d => d.name);
+        } else {
+            console.warn('⚠️ לא נמצאו נתונים בגליון');
+            groups = [];
+            donors = [];
         }
 
         if (totalDonated === 0 && donors.length > 0) {
@@ -1509,7 +1448,16 @@
             scrollInner.style.setProperty('--css-smooth-duration', durationMs + 'ms');
             scrollInner.removeAttribute('data-donors-scroll');
             scrollInner.removeAttribute('data-css-smooth-scroll');
-            scrollInner.style.animationDelay = '';
+            
+            // שחזר מיקום גלילה אם יש
+            const ratio = savedDonorsScrollRatio;
+            savedDonorsScrollRatio = null;
+            if (ratio != null && ratio > 0 && ratio < 1) {
+                scrollInner.style.animationDelay = '-' + (ratio * durationMs) + 'ms';
+            } else {
+                scrollInner.style.animationDelay = '';
+            }
+            
             scrollInner.style.transform = '';
             scrollInner.offsetHeight; // Force reflow
             scrollInner.setAttribute('data-css-smooth-scroll', '1');
@@ -1690,9 +1638,50 @@
         if (ind) ind.classList.remove('show');
     }
     let progressAnimationInterval = null;
+    let isRefreshing = false;
+    
     async function refresh() {
+        if (isRefreshing) return; // מניעת רענון כפול
+        isRefreshing = true;
+        
         const isPeriodicRefresh = hasLoadedOnce;
         const ESTIMATED_DURATION_MS = 20000;
+        
+        // שמור מצב גלילה לפני עדכון
+        const scrollType = liveViewSettings.donorScrollType || 'normal';
+        const scrollInner = document.getElementById('liveDonorsScrollInner');
+        const viewport = document.getElementById('liveDonorsScrollViewport');
+        let savedScrollState = null;
+        
+        if (isPeriodicRefresh && scrollInner) {
+            // שמור את מצב האנימציה הנוכחי
+            if (scrollType === 'css-smooth' && scrollInner.hasAttribute('data-css-smooth-scroll')) {
+                const anims = scrollInner.getAnimations ? scrollInner.getAnimations() : [];
+                const anim = anims.find(a => a.animationName === 'cssSmoothScroll');
+                if (anim && anim.currentTime != null) {
+                    const dur = anim.effect && anim.effect.getTiming ? anim.effect.getTiming().duration : 0;
+                    if (dur > 0) {
+                        savedScrollState = { type: 'css-smooth', ratio: (anim.currentTime % dur) / dur };
+                    }
+                }
+            } else if (scrollType === 'transform-animation' && scrollInner.hasAttribute('data-donors-scroll')) {
+                const anims = scrollInner.getAnimations ? scrollInner.getAnimations() : [];
+                const anim = anims.find(a => a.animationName === 'donorsScrollUp');
+                if (anim && anim.currentTime != null) {
+                    const dur = anim.effect && anim.effect.getTiming ? anim.effect.getTiming().duration : 0;
+                    if (dur > 0) {
+                        savedScrollState = { type: 'transform', ratio: (anim.currentTime % dur) / dur };
+                    }
+                }
+            } else if ((scrollType === 'tv' || scrollType === 'tv-slow') && viewport) {
+                const container = document.getElementById('liveDonorsScroll');
+                const half = container ? container.scrollHeight / 2 : 0;
+                if (half > 0) {
+                    savedScrollState = { type: 'tv', ratio: viewport.scrollTop / half };
+                }
+            }
+        }
+        
         try {
             if (isPeriodicRefresh) {
                 showUpdateIndicator('בדיקת סכום', 0);
@@ -1711,6 +1700,12 @@
                 }
                 showUpdateIndicator('בדיקת סכום', 100);
             }
+            
+            // שחזר מצב גלילה
+            if (savedScrollState) {
+                savedDonorsScrollRatio = savedScrollState.ratio;
+            }
+            
             render();
             hasLoadedOnce = true;
             if (isPeriodicRefresh) setTimeout(hideUpdateIndicator, 800);
@@ -1731,6 +1726,8 @@
                 overlay.innerHTML = '<div class="error-msg">שגיאה בטעינה: ' + (e.message || e) + '<br><br>ודא שכתובת ה-Web App נכונה בהגדרות.</div>';
             }
         }
+        
+        isRefreshing = false;
     }
 
     function scrollWatchdog() {
