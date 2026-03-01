@@ -140,6 +140,11 @@ function hasAlertForArea(alertCities, userCity) {
 let currentAlerts = null;
 let currentAlertsTime = 0;
 
+// הודעה מותאמת אישית
+let customMessage = null;
+let customMessageTime = 0;
+let customMessageDuration = 30000; // ברירת מחדל 30 שניות
+
 function checkAlerts() {
     pikudHaoref.getActiveAlert(function(err, alert) {
         if (err) {
@@ -265,6 +270,52 @@ app.get('/api/status', (req, res) => {
     });
 });
 
+// API - שליחת הודעה מותאמת אישית
+app.post('/api/message', (req, res) => {
+    const { title, content, duration } = req.body;
+    
+    if (!title && !content) {
+        return res.json({ success: false, error: 'נדרשת כותרת או תוכן' });
+    }
+    
+    customMessage = {
+        title: title || '',
+        content: content || '',
+        timestamp: Date.now()
+    };
+    customMessageTime = Date.now();
+    customMessageDuration = Math.max(5000, Math.min(300000, (parseInt(duration) || 30) * 1000));
+    
+    console.log('📢 הודעה מותאמת נשלחה:', title || content);
+    
+    res.json({
+        success: true,
+        message: 'ההודעה נשלחה בהצלחה',
+        duration: customMessageDuration / 1000
+    });
+});
+
+// API - בדיקת הודעה מותאמת
+app.get('/api/message', (req, res) => {
+    const now = Date.now();
+    const isActive = customMessage && (now - customMessageTime) < customMessageDuration;
+    
+    res.json({
+        hasMessage: isActive,
+        message: isActive ? customMessage : null,
+        remainingSeconds: isActive ? Math.ceil((customMessageDuration - (now - customMessageTime)) / 1000) : 0,
+        serverRunning: true
+    });
+});
+
+// API - ביטול הודעה
+app.delete('/api/message', (req, res) => {
+    customMessage = null;
+    customMessageTime = 0;
+    console.log('🗑️ הודעה בוטלה');
+    res.json({ success: true, message: 'ההודעה בוטלה' });
+});
+
 // דף בית
 app.get('/', (req, res) => {
     res.send(`
@@ -274,21 +325,34 @@ app.get('/', (req, res) => {
             <meta charset="UTF-8">
             <title>שרת התראות לפי מיקום</title>
             <style>
-                body { font-family: Arial, sans-serif; padding: 40px; background: #f5f5f5; }
-                .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-                h1 { color: #333; margin-bottom: 20px; }
+                body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+                .container { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+                h1, h2 { color: #333; margin-bottom: 20px; }
+                h2 { font-size: 20px; border-bottom: 2px solid #D4AF37; padding-bottom: 10px; }
                 .status { padding: 15px; border-radius: 8px; margin: 15px 0; }
                 .status.ok { background: #d4edda; color: #155724; }
                 .status.info { background: #cce5ff; color: #004085; }
                 .status.alert { background: #f8d7da; color: #721c24; }
+                .status.warning { background: #fff3cd; color: #856404; }
                 .btn { display: inline-block; padding: 12px 24px; background: #dc2626; color: white; text-decoration: none; border-radius: 8px; margin: 10px 5px 10px 0; border: none; cursor: pointer; font-size: 16px; }
                 .btn:hover { background: #b91c1c; }
                 .btn.secondary { background: #6b7280; }
                 .btn.secondary:hover { background: #4b5563; }
                 .btn.green { background: #16a34a; }
                 .btn.green:hover { background: #15803d; }
+                .btn.gold { background: #D4AF37; }
+                .btn.gold:hover { background: #B8941F; }
+                .btn.blue { background: #2563eb; }
+                .btn.blue:hover { background: #1d4ed8; }
                 #result { margin-top: 20px; }
                 #location { font-size: 14px; color: #666; margin: 10px 0; }
+                .form-group { margin-bottom: 15px; }
+                .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #333; }
+                .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+                .form-group textarea { min-height: 80px; resize: vertical; }
+                .form-row { display: flex; gap: 15px; }
+                .form-row .form-group { flex: 1; }
+                #messageStatus { margin-top: 15px; }
             </style>
         </head>
         <body>
@@ -306,6 +370,43 @@ app.get('/', (req, res) => {
                 
                 <div id="result"></div>
             </div>
+            
+            <div class="container">
+                <h2>📢 שליחת הודעה מותאמת אישית</h2>
+                <p style="color: #666; margin-bottom: 20px;">ההודעה תוצג בתצוגת הלייב על כל המסכים המחוברים</p>
+                
+                <div class="form-group">
+                    <label>כותרת ההודעה:</label>
+                    <input type="text" id="msgTitle" placeholder="לדוגמה: הודעה חשובה!">
+                </div>
+                
+                <div class="form-group">
+                    <label>תוכן ההודעה:</label>
+                    <textarea id="msgContent" placeholder="כתוב כאן את תוכן ההודעה..."></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>משך הצגה:</label>
+                        <select id="msgDuration">
+                            <option value="10">10 שניות</option>
+                            <option value="30" selected>30 שניות</option>
+                            <option value="60">דקה</option>
+                            <option value="120">2 דקות</option>
+                            <option value="300">5 דקות</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <button class="btn gold" onclick="sendMessage()">📤 שלח הודעה</button>
+                    <button class="btn secondary" onclick="cancelMessage()">🗑️ בטל הודעה</button>
+                    <button class="btn blue" onclick="checkMessage()">🔍 בדוק סטטוס</button>
+                </div>
+                
+                <div id="messageStatus"></div>
+            </div>
+            
             <script>
                 let userLat = null, userLng = null;
                 
@@ -353,6 +454,49 @@ app.get('/', (req, res) => {
                     const res = await fetch('/api/test?lat=' + userLat + '&lng=' + userLng);
                     const data = await res.json();
                     document.getElementById('result').innerHTML = '<div class="status alert">🧪 ' + data.message + '<br>עיר: ' + data.city + '</div>';
+                }
+                
+                async function sendMessage() {
+                    const title = document.getElementById('msgTitle').value.trim();
+                    const content = document.getElementById('msgContent').value.trim();
+                    const duration = document.getElementById('msgDuration').value;
+                    
+                    if (!title && !content) {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status warning">⚠️ נא למלא כותרת או תוכן</div>';
+                        return;
+                    }
+                    
+                    const res = await fetch('/api/message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title, content, duration })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status ok">✅ ' + data.message + ' (ל-' + data.duration + ' שניות)</div>';
+                        document.getElementById('msgTitle').value = '';
+                        document.getElementById('msgContent').value = '';
+                    } else {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status alert">❌ ' + data.error + '</div>';
+                    }
+                }
+                
+                async function cancelMessage() {
+                    const res = await fetch('/api/message', { method: 'DELETE' });
+                    const data = await res.json();
+                    document.getElementById('messageStatus').innerHTML = '<div class="status info">🗑️ ' + data.message + '</div>';
+                }
+                
+                async function checkMessage() {
+                    const res = await fetch('/api/message');
+                    const data = await res.json();
+                    
+                    if (data.hasMessage) {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status warning">📢 יש הודעה פעילה!<br><strong>' + (data.message.title || '') + '</strong><br>' + (data.message.content || '') + '<br>נותרו: ' + data.remainingSeconds + ' שניות</div>';
+                    } else {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status info">אין הודעה פעילה כרגע</div>';
+                    }
                 }
                 
                 getLocation();
