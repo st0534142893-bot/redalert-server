@@ -397,6 +397,36 @@
             0%, 100% { box-shadow: 0 4px 24px rgba(185, 28, 28, 0.6); }
             50% { box-shadow: 0 6px 32px rgba(255, 80, 80, 0.8); }
         }
+        /* באנר הודעה מותאמת אישית */
+        .live-custom-message-banner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10004;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #1d4ed8 100%);
+            color: white;
+            padding: 20px 24px;
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(30, 64, 175, 0.6);
+            animation: customMessagePulse 2s ease-in-out infinite;
+        }
+        .live-custom-message-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+        .live-custom-message-banner .custom-message-title { font-size: 32px; font-weight: 800; }
+        .live-custom-message-banner .custom-message-content { font-size: 22px; opacity: 0.95; max-width: 80%; line-height: 1.5; }
+        .live-custom-message-banner .custom-message-countdown {
+            font-size: 16px;
+            font-weight: 500;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+        @keyframes customMessagePulse {
+            0%, 100% { box-shadow: 0 4px 24px rgba(30, 64, 175, 0.6); }
+            50% { box-shadow: 0 6px 32px rgba(59, 130, 246, 0.8); }
+        }
         .loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -636,6 +666,11 @@
             <span class="emergency-instructions" id="emergencyInstructions"></span>
             <span class="emergency-countdown" id="emergencyCountdown"></span>
         </div>
+        <div class="live-custom-message-banner" id="liveCustomMessageBanner">
+            <span class="custom-message-title" id="customMessageTitle"></span>
+            <span class="custom-message-content" id="customMessageContent"></span>
+            <span class="custom-message-countdown" id="customMessageCountdown"></span>
+        </div>
         <div class="live-view-update-indicator" id="liveViewUpdateIndicator">
             <div class="update-indicator-row">
                 <span class="update-indicator-title" id="updateIndicatorTitle">בדיקת סכום</span>
@@ -803,6 +838,9 @@
     let emergencyAlertsInterval = null;
     let emergencyBannerHideTimer = null;
     let emergencyCountdownInterval = null;
+    let customMessageInterval = null;
+    let customMessageHideTimer = null;
+    let customMessageCountdownInterval = null;
     let userLocation = { lat: null, lng: null };
     let buttonsHideTimer = null;
     const BUTTONS_HIDE_DELAY_MS = 3000;
@@ -1813,6 +1851,7 @@
         render();
         startRefreshInterval();
         startEmergencyAlertsInterval();
+        startCustomMessageInterval();
         closeLiveViewSettings();
     }
 
@@ -2075,6 +2114,74 @@
         checkEmergencyAlert();
         emergencyAlertsInterval = setInterval(checkEmergencyAlert, sec * 1000);
     }
+
+    // הודעות מותאמות אישית
+    function showCustomMessageBanner(message) {
+        const banner = document.getElementById('liveCustomMessageBanner');
+        const titleEl = document.getElementById('customMessageTitle');
+        const contentEl = document.getElementById('customMessageContent');
+        const countdownEl = document.getElementById('customMessageCountdown');
+        if (!banner) return;
+        
+        if (titleEl) titleEl.textContent = message.title || '';
+        if (contentEl) contentEl.textContent = message.content || '';
+        banner.classList.add('active');
+        
+        if (customMessageHideTimer) clearTimeout(customMessageHideTimer);
+        if (customMessageCountdownInterval) clearInterval(customMessageCountdownInterval);
+        
+        let remaining = message.remainingSeconds || 30;
+        if (countdownEl) {
+            countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
+            customMessageCountdownInterval = setInterval(() => {
+                remaining--;
+                if (countdownEl) countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
+                if (remaining <= 0) {
+                    clearInterval(customMessageCountdownInterval);
+                    customMessageCountdownInterval = null;
+                }
+            }, 1000);
+        }
+        
+        customMessageHideTimer = setTimeout(hideCustomMessageBanner, remaining * 1000);
+    }
+    
+    function hideCustomMessageBanner() {
+        const banner = document.getElementById('liveCustomMessageBanner');
+        if (banner) banner.classList.remove('active');
+        if (customMessageHideTimer) { clearTimeout(customMessageHideTimer); customMessageHideTimer = null; }
+        if (customMessageCountdownInterval) { clearInterval(customMessageCountdownInterval); customMessageCountdownInterval = null; }
+    }
+    
+    function checkCustomMessage() {
+        if (!liveViewSettings.emergencyAlertsEnabled) return;
+        const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
+        
+        fetch(base + '/api/message', { credentials: 'omit' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.hasMessage && data.message) {
+                    showCustomMessageBanner({
+                        title: data.message.title,
+                        content: data.message.content,
+                        remainingSeconds: data.remainingSeconds
+                    });
+                } else {
+                    hideCustomMessageBanner();
+                }
+            })
+            .catch(() => {});
+    }
+    
+    function startCustomMessageInterval() {
+        if (customMessageInterval) clearInterval(customMessageInterval);
+        customMessageInterval = null;
+        hideCustomMessageBanner();
+        if (!liveViewSettings.emergencyAlertsEnabled) return;
+        checkCustomMessage();
+        customMessageInterval = setInterval(checkCustomMessage, 5000); // בדוק כל 5 שניות
+    }
+
     async function init() {
         loadSettings();
         try {
@@ -2091,6 +2198,7 @@
             if (overlay) overlay.classList.add('hidden');
             startRefreshInterval();
             startEmergencyAlertsInterval();
+            startCustomMessageInterval();
             setInterval(scrollWatchdog, 2000);
             initButtonsAutoHide();
         } catch (e) {
