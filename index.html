@@ -2131,19 +2131,27 @@
         if (customMessageCountdownInterval) clearInterval(customMessageCountdownInterval);
         
         let remaining = message.remainingSeconds || 30;
+        const isUnlimited = remaining > 86400; // יותר מיום = ללא הגבלה
+        
         if (countdownEl) {
-            countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
-            customMessageCountdownInterval = setInterval(() => {
-                remaining--;
-                if (countdownEl) countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
-                if (remaining <= 0) {
-                    clearInterval(customMessageCountdownInterval);
-                    customMessageCountdownInterval = null;
-                }
-            }, 1000);
+            if (isUnlimited) {
+                countdownEl.textContent = '';
+            } else {
+                countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
+                customMessageCountdownInterval = setInterval(() => {
+                    remaining--;
+                    if (countdownEl) countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
+                    if (remaining <= 0) {
+                        clearInterval(customMessageCountdownInterval);
+                        customMessageCountdownInterval = null;
+                    }
+                }, 1000);
+            }
         }
         
-        customMessageHideTimer = setTimeout(hideCustomMessageBanner, remaining * 1000);
+        if (!isUnlimited) {
+            customMessageHideTimer = setTimeout(hideCustomMessageBanner, remaining * 1000);
+        }
     }
     
     function hideCustomMessageBanner() {
