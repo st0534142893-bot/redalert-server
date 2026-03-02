@@ -5,15 +5,28 @@ const pikudHaoref = require('pikud-haoref-api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Proxy configuration - הגדר את הפרוקסי הישראלי כאן או כ-environment variable
+// Example: ISRAELI_PROXY=http://user:pass@proxy.co.il:8080
+const ISRAELI_PROXY = process.env.ISRAELI_PROXY || null;
+const API_OPTIONS = ISRAELI_PROXY ? { proxy: ISRAELI_PROXY } : {};
+
 app.use(cors());
 app.use(express.json());
 
 let lastAlert = null;
 let lastAlertTime = 0;
-const ALERT_DISPLAY_DURATION = 60000; // 60 שניות במקום 30
+const ALERT_DISPLAY_DURATION = 120000; // 2 דקות במקום דקה
 
 // לוג של כל ההתראות שהתקבלו
 let alertHistory = [];
+
+// מצב API וסיבת שגיאה
+let apiStatus = {
+    working: null,
+    lastError: null,
+    lastCheck: null,
+    proxyConfigured: !!ISRAELI_PROXY
+};
 
 // מיפוי ערים לקואורדינטות (lat, lng)
 const CITIES_COORDINATES = {
@@ -150,10 +163,26 @@ let customMessageDuration = 30000; // ברירת מחדל 30 שניות
 
 function checkAlerts() {
     pikudHaoref.getActiveAlert(function(err, alert) {
+        apiStatus.lastCheck = new Date().toISOString();
+        
         if (err) {
-            console.error('❌ שגיאה בבדיקת התראות:', err.message || err);
+            const errorMsg = err.message || String(err);
+            apiStatus.working = false;
+            apiStatus.lastError = errorMsg;
+            
+            // לא להדפיס שגיאה בכל בדיקה - רק פעם אחת בדקה
+            if (!apiStatus.lastErrorLog || Date.now() - apiStatus.lastErrorLog > 60000) {
+                console.error('❌ שגיאה בבדיקת התראות:', errorMsg);
+                if (errorMsg.includes('403') || errorMsg.includes('Request failed')) {
+                    console.log('⚠️ הערה: ה-API נגיש רק מישראל. יש להגדיר ISRAELI_PROXY או להשתמש ב"התראות טסט".');
+                }
+                apiStatus.lastErrorLog = Date.now();
+            }
             return;
         }
+        
+        apiStatus.working = true;
+        apiStatus.lastError = null;
         
         if (alert && alert.type && alert.cities && alert.cities.length > 0) {
             currentAlerts = alert;
@@ -170,7 +199,7 @@ function checkAlerts() {
             
             console.log('🚨 התראה התקבלה:', alert.cities.length, 'אזורים:', alert.cities.join(', '));
         }
-    });
+    }, API_OPTIONS);
 }
 
 // API - בדיקת התראות עם קואורדינטות
@@ -278,7 +307,7 @@ app.get('/api/test', (req, res) => {
     
     res.json({
         success: true,
-        message: 'התראת טסט הופעלה ל-30 שניות',
+        message: `התראת טסט הופעלה ל-${ALERT_DISPLAY_DURATION / 1000} שניות`,
         city: testCity,
         cities: testCities
     });
@@ -299,7 +328,17 @@ app.get('/api/status', (req, res) => {
         alertAgeSeconds: alertAge,
         lastAlertTime: currentAlertsTime ? new Date(currentAlertsTime).toISOString() : null,
         alertDisplayDuration: ALERT_DISPLAY_DURATION / 1000,
-        recentAlerts: alertHistory.slice(0, 10)
+        recentAlerts: alertHistory.slice(0, 10),
+        // מצב API
+        apiStatus: {
+            working: apiStatus.working,
+            proxyConfigured: apiStatus.proxyConfigured,
+            lastError: apiStatus.lastError,
+            lastCheck: apiStatus.lastCheck,
+            note: apiStatus.working === false ? 
+                'ה-API של פיקוד העורף נגיש רק מישראל. השתמש בהתראות טסט או הגדר proxy ישראלי.' : 
+                null
+        }
     });
 });
 
@@ -315,13 +354,26 @@ app.get('/api/history', (req, res) => {
 // API - בדיקת חיבור לפיקוד העורף (debug)
 app.get('/api/debug', (req, res) => {
     console.log('🔍 בדיקת debug - מבצע בדיקה ידנית...');
+    console.log('🔧 הגדרות:', { proxyConfigured: !!ISRAELI_PROXY });
     
     pikudHaoref.getActiveAlert(function(err, alert) {
         if (err) {
-            console.error('❌ שגיאת debug:', err);
+            const errorMsg = err.message || String(err);
+            console.error('❌ שגיאת debug:', errorMsg);
+            
+            // בדוק אם זו שגיאת גישה מחו"ל
+            const isGeoBlocked = errorMsg.includes('403') || 
+                                 errorMsg.includes('Request failed') ||
+                                 errorMsg.includes('ECONNREFUSED');
+            
             return res.json({
                 success: false,
-                error: err.message || String(err),
+                error: errorMsg,
+                isGeoBlocked: isGeoBlocked,
+                proxyConfigured: !!ISRAELI_PROXY,
+                solution: isGeoBlocked ? 
+                    'ה-API נגיש רק מישראל. פתרונות: 1) הגדר ISRAELI_PROXY=http://proxy.co.il:8080 ב-Railway. 2) השתמש בהתראות טסט לבדיקה. 3) הרץ את השרת על מחשב בישראל.' : 
+                    null,
                 timestamp: new Date().toISOString()
             });
         }
@@ -345,13 +397,14 @@ app.get('/api/debug', (req, res) => {
             success: true,
             hasActiveAlert: !!(alert && alert.cities && alert.cities.length > 0),
             rawResponse: alert,
+            proxyConfigured: !!ISRAELI_PROXY,
             currentServerState: {
                 currentAlerts: currentAlerts,
                 alertAge: currentAlertsTime ? Math.round((Date.now() - currentAlertsTime) / 1000) : null
             },
             timestamp: new Date().toISOString()
         });
-    });
+    }, API_OPTIONS);
 });
 
 // API - שליחת הודעה מותאמת אישית
@@ -447,6 +500,10 @@ app.get('/', (req, res) => {
             <div class="container">
                 <h1>🚨 שרת התראות לפי מיקום</h1>
                 <div class="status ok">✅ השרת פועל על פורט ${PORT}</div>
+                ${ISRAELI_PROXY ? 
+                    '<div class="status ok">🔌 פרוקסי ישראלי מוגדר</div>' : 
+                    '<div class="status warning">⚠️ <strong>ללא פרוקסי ישראלי</strong> - ה-API של פיקוד העורף נגיש רק מישראל.<br>השתמש ב"התראות טסט" או הגדר ISRAELI_PROXY ב-Railway.</div>'
+                }
                 
                 <div id="location">📍 מיקום: טוען...</div>
                 
@@ -654,14 +711,20 @@ app.listen(PORT, () => {
 📡 בודק התראות כל 3 שניות
 🗺️  ${Object.keys(CITIES_COORDINATES).length} ערים במאגר
 ⏱️  משך הצגת התראה: ${ALERT_DISPLAY_DURATION / 1000} שניות
+🔌 פרוקסי ישראלי: ${ISRAELI_PROXY ? '✅ מוגדר' : '❌ לא מוגדר'}
 
+${!ISRAELI_PROXY ? `⚠️  הערה: ה-API של פיקוד העורף נגיש רק מישראל.
+    להגדרת פרוקסי: הוסף ISRAELI_PROXY=http://user:pass@proxy.co.il:8080 ב-Railway
+    או השתמש ב-"התראות טסט" לבדיקה.
+` : ''}
 נקודות קצה:
-  GET /api/alert?lat=XX&lng=YY    - בדיקת התראות לפי מיקום
-  GET /api/alert?all=1            - כל ההתראות בארץ
-  GET /api/test?lat=XX&lng=YY     - התראת טסט
+  GET /api/alert?lat=XX&lng=YY      - בדיקת התראות לפי מיקום
+  GET /api/alert?all=1              - כל ההתראות בארץ
+  GET /api/test?lat=XX&lng=YY       - התראת טסט
   GET /api/test?lat=XX&lng=YY&all=1 - התראת טסט לכל הערים
-  GET /api/status                 - סטטוס השרת והתראות נוכחיות
-  GET /api/history                - היסטוריית התראות
+  GET /api/status                   - סטטוס השרת והתראות נוכחיות
+  GET /api/history                  - היסטוריית התראות
+  GET /api/debug                    - בדיקת חיבור ל-API
     `);
     
     checkAlerts();
