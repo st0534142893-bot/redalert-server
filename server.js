@@ -10,7 +10,10 @@ app.use(express.json());
 
 let lastAlert = null;
 let lastAlertTime = 0;
-const ALERT_DISPLAY_DURATION = 30000;
+const ALERT_DISPLAY_DURATION = 60000; // 60 שניות במקום 30
+
+// לוג של כל ההתראות שהתקבלו
+let alertHistory = [];
 
 // מיפוי ערים לקואורדינטות (lat, lng)
 const CITIES_COORDINATES = {
@@ -148,13 +151,24 @@ let customMessageDuration = 30000; // ברירת מחדל 30 שניות
 function checkAlerts() {
     pikudHaoref.getActiveAlert(function(err, alert) {
         if (err) {
+            console.error('❌ שגיאה בבדיקת התראות:', err.message || err);
             return;
         }
         
         if (alert && alert.type && alert.cities && alert.cities.length > 0) {
             currentAlerts = alert;
             currentAlertsTime = Date.now();
-            console.log('📡 התראה התקבלה:', alert.cities.length, 'אזורים');
+            
+            // שמור בהיסטוריה
+            alertHistory.unshift({
+                time: new Date().toISOString(),
+                cities: alert.cities,
+                type: alert.type
+            });
+            // שמור רק 50 אחרונות
+            if (alertHistory.length > 50) alertHistory.pop();
+            
+            console.log('🚨 התראה התקבלה:', alert.cities.length, 'אזורים:', alert.cities.join(', '));
         }
     });
 }
@@ -272,11 +286,71 @@ app.get('/api/test', (req, res) => {
 
 // API - סטטוס
 app.get('/api/status', (req, res) => {
+    const now = Date.now();
+    const alertAge = currentAlertsTime ? Math.round((now - currentAlertsTime) / 1000) : null;
+    const alertActive = currentAlerts && (now - currentAlertsTime) < ALERT_DISPLAY_DURATION;
+    
     res.json({
         serverRunning: true,
         port: PORT,
         citiesInDatabase: Object.keys(CITIES_COORDINATES).length,
-        lastAlertTime: currentAlertsTime ? new Date(currentAlertsTime).toISOString() : null
+        currentAlerts: alertActive ? currentAlerts.cities : [],
+        alertActive: alertActive,
+        alertAgeSeconds: alertAge,
+        lastAlertTime: currentAlertsTime ? new Date(currentAlertsTime).toISOString() : null,
+        alertDisplayDuration: ALERT_DISPLAY_DURATION / 1000,
+        recentAlerts: alertHistory.slice(0, 10)
+    });
+});
+
+// API - היסטוריית התראות
+app.get('/api/history', (req, res) => {
+    res.json({
+        success: true,
+        count: alertHistory.length,
+        alerts: alertHistory
+    });
+});
+
+// API - בדיקת חיבור לפיקוד העורף (debug)
+app.get('/api/debug', (req, res) => {
+    console.log('🔍 בדיקת debug - מבצע בדיקה ידנית...');
+    
+    pikudHaoref.getActiveAlert(function(err, alert) {
+        if (err) {
+            console.error('❌ שגיאת debug:', err);
+            return res.json({
+                success: false,
+                error: err.message || String(err),
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        console.log('📋 תשובה מפיקוד העורף:', JSON.stringify(alert));
+        
+        // אם יש התראה, עדכן את ה-state
+        if (alert && alert.type && alert.cities && alert.cities.length > 0) {
+            currentAlerts = alert;
+            currentAlertsTime = Date.now();
+            alertHistory.unshift({
+                time: new Date().toISOString(),
+                cities: alert.cities,
+                type: alert.type,
+                source: 'debug'
+            });
+            if (alertHistory.length > 50) alertHistory.pop();
+        }
+        
+        res.json({
+            success: true,
+            hasActiveAlert: !!(alert && alert.cities && alert.cities.length > 0),
+            rawResponse: alert,
+            currentServerState: {
+                currentAlerts: currentAlerts,
+                alertAge: currentAlertsTime ? Math.round((Date.now() - currentAlertsTime) / 1000) : null
+            },
+            timestamp: new Date().toISOString()
+        });
     });
 });
 
@@ -381,6 +455,8 @@ app.get('/', (req, res) => {
                     <button class="btn" onclick="testAlert()">🧪 התראת טסט</button>
                     <button class="btn" onclick="testAlertAll()" style="background:#9333ea;">🧪 טסט כל הערים</button>
                     <button class="btn secondary" onclick="checkAlert()">🔍 בדוק התראות</button>
+                    <button class="btn secondary" onclick="checkStatus()">📊 סטטוס שרת</button>
+                    <button class="btn blue" onclick="debugCheck()">🔧 Debug פיקוד העורף</button>
                 </div>
                 
                 <div id="result"></div>
@@ -487,6 +563,39 @@ app.get('/', (req, res) => {
                     document.getElementById('result').innerHTML = '<div class="status alert">🧪 ' + data.message + '<br>ערים: ' + (data.cities || []).join(', ') + '</div>';
                 }
                 
+                async function checkStatus() {
+                    const res = await fetch('/api/status');
+                    const data = await res.json();
+                    let html = '<div class="status info"><strong>📊 סטטוס השרת:</strong><br>';
+                    html += '• התראות פעילות: ' + (data.alertActive ? '✅ כן' : '❌ לא') + '<br>';
+                    if (data.currentAlerts && data.currentAlerts.length > 0) {
+                        html += '• ערים בהתראה: ' + data.currentAlerts.join(', ') + '<br>';
+                        html += '• גיל ההתראה: ' + data.alertAgeSeconds + ' שניות<br>';
+                    }
+                    html += '• התראות אחרונות בהיסטוריה: ' + (data.recentAlerts ? data.recentAlerts.length : 0) + '</div>';
+                    if (data.recentAlerts && data.recentAlerts.length > 0) {
+                        html += '<div class="status warning"><strong>היסטוריית התראות:</strong><br>';
+                        data.recentAlerts.forEach(a => {
+                            html += '• ' + a.time + ': ' + a.cities.join(', ') + '<br>';
+                        });
+                        html += '</div>';
+                    }
+                    document.getElementById('result').innerHTML = html;
+                }
+                
+                async function debugCheck() {
+                    document.getElementById('result').innerHTML = '<div class="status info">🔧 בודק חיבור לפיקוד העורף...</div>';
+                    const res = await fetch('/api/debug');
+                    const data = await res.json();
+                    let html = '<div class="status ' + (data.hasActiveAlert ? 'alert' : 'info') + '">';
+                    html += '<strong>🔧 תוצאת בדיקה:</strong><br>';
+                    html += '• הצלחה: ' + (data.success ? '✅' : '❌') + '<br>';
+                    html += '• יש התראה פעילה: ' + (data.hasActiveAlert ? '🚨 כן!' : 'לא') + '<br>';
+                    html += '• זמן: ' + data.timestamp + '</div>';
+                    html += '<pre style="background:#f3f4f6;padding:15px;border-radius:8px;font-size:12px;direction:ltr;text-align:left;overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    document.getElementById('result').innerHTML = html;
+                }
+                
                 async function sendMessage() {
                     const title = document.getElementById('msgTitle').value.trim();
                     const content = document.getElementById('msgContent').value.trim();
@@ -544,11 +653,15 @@ app.listen(PORT, () => {
 📍 כתובת: http://localhost:${PORT}
 📡 בודק התראות כל 3 שניות
 🗺️  ${Object.keys(CITIES_COORDINATES).length} ערים במאגר
+⏱️  משך הצגת התראה: ${ALERT_DISPLAY_DURATION / 1000} שניות
 
 נקודות קצה:
-  GET /api/alert?lat=XX&lng=YY  - בדיקת התראות לפי מיקום
-  GET /api/test?lat=XX&lng=YY   - התראת טסט
-  GET /api/status               - סטטוס השרת
+  GET /api/alert?lat=XX&lng=YY    - בדיקת התראות לפי מיקום
+  GET /api/alert?all=1            - כל ההתראות בארץ
+  GET /api/test?lat=XX&lng=YY     - התראת טסט
+  GET /api/test?lat=XX&lng=YY&all=1 - התראת טסט לכל הערים
+  GET /api/status                 - סטטוס השרת והתראות נוכחיות
+  GET /api/history                - היסטוריית התראות
     `);
     
     checkAlerts();
