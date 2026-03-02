@@ -1,2413 +1,731 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>תצוגת לייב – נדרים פלוס</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            --primary-gold: #D4AF37;
-            --primary-gold-dark: #B8941F;
-            --cream: #F5E6D3;
-            --cream-light: #FFF8DC;
-            --cream-dark: #E8D5B7;
-            --brown-dark: #3d2f1f;
-            --muted: #8B6F47;
-            --border: rgba(212, 175, 55, 0.3);
-        }
-        body {
-            font-family: 'Segoe UI', 'David', 'Arial Hebrew', sans-serif;
-            background: linear-gradient(135deg, var(--cream) 0%, var(--cream-light) 100%);
-            color: var(--brown-dark);
-            direction: rtl;
-            overflow: hidden;
-            height: 100vh;
-        }
-        .live-view-section {
-            background: linear-gradient(135deg, rgba(245, 230, 211, 0.9) 0%, rgba(255, 248, 220, 0.9) 100%);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100%;
-        }
-        .live-content {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-            position: relative;
-            z-index: 1;
-        }
-        .live-leaders-sidebar {
-            flex: 0 0 25% !important;
-            width: 25% !important;
-            min-width: 200px;
-            padding: 16px 18px;
-            display: flex;
-            flex-direction: column;
-            overflow: visible;
-            position: relative;
-            background: transparent !important;
-        }
-        .live-leaders-backing {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 0;
-            border-radius: 16px;
-            margin: 8px;
-            background: linear-gradient(135deg, rgba(245,230,211,0.95) 0%, rgba(255,248,220,0.95) 100%);
-        }
-        .live-leaders-scroll-wrapper { flex: 1; overflow: hidden; position: relative; z-index: 10; height: 100%; min-height: 0; display: flex; flex-direction: column; }
-        .leaders-static-top { flex-shrink: 0; }
-        .leaders-scroll-area { flex: 1; overflow: hidden; min-height: 0; }
-        .leaders-title {
-            font-size: var(--lv-title-size, 32px);
-            color: var(--brown-dark);
-            margin-bottom: 18px;
-            text-align: center;
-            font-weight: 700;
-        }
-        .leaders-list { display: flex; flex-direction: column; gap: 14px; }
-        .leaders-list.leaders-in-scroll { margin-bottom: 12px; }
-        .leaders-targets-block { display: flex; flex-direction: column; gap: 0; padding-top: 0; }
-        .leader-item {
-            background: rgba(255,255,255,0.98);
-            border-radius: 12px;
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
-        .leader-item.rank-1 {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.25) 0%, rgba(255, 248, 180, 0.9) 50%, rgba(255, 255, 240, 0.95) 100%);
-            padding: 16px 20px;
-        }
-        .leader-item.rank-2 {
-            background: linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, rgba(230, 230, 230, 0.9) 50%, rgba(250, 250, 250, 0.95) 100%);
-        }
-        .leader-item.rank-3 {
-            background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(255, 220, 180, 0.9) 50%, rgba(255, 245, 230, 0.95) 100%);
-        }
-        .leader-item.rank-4 {
-            background: linear-gradient(135deg, rgba(184, 134, 11, 0.18) 0%, rgba(255, 240, 200, 0.9) 50%, rgba(255, 250, 235, 0.95) 100%);
-        }
-        .leader-item.rank-5 {
-            background: linear-gradient(135deg, rgba(139, 69, 19, 0.18) 0%, rgba(255, 230, 200, 0.9) 50%, rgba(255, 245, 230, 0.95) 100%);
-        }
-        .leader-rank {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--primary-gold-dark);
-            min-width: 42px;
-            text-align: center;
-        }
-        .leader-item.rank-1 .leader-rank { color: #8B6914; font-weight: 800; }
-        .leader-item.rank-1 .leader-rank::after { content: '🥇'; font-size: 36px; margin-right: 6px; display: inline-block; }
-        .leader-item.rank-2 .leader-rank { color: #C0C0C0; }
-        .leader-item.rank-2 .leader-rank::after { content: '🥈'; font-size: 32px; margin-right: 6px; display: inline-block; }
-        .leader-item.rank-3 .leader-rank { color: #CD7F32; }
-        .leader-item.rank-3 .leader-rank::after { content: '🥉'; font-size: 32px; margin-right: 6px; display: inline-block; }
-        .leader-item.rank-4 .leader-rank { color: #8B6914; }
-        .leader-item.rank-4 .leader-rank::after { content: '4️⃣'; font-size: 28px; margin-right: 6px; display: inline-block; }
-        .leader-item.rank-5 .leader-rank { color: #654321; }
-        .leader-item.rank-5 .leader-rank::after { content: '5️⃣'; font-size: 28px; margin-right: 6px; display: inline-block; }
-        .leader-info { flex: 1; margin: 0 12px; }
-        .leader-name { font-size: 16px; font-weight: 600; color: var(--brown-dark); }
-        .leader-item.rank-1 .leader-name { color: #2d1f0f; font-weight: 700; }
-        .leader-total { font-size: 18px; font-weight: 700; color: var(--primary-gold-dark); min-width: 10ch; }
-        .leader-item.rank-1 .leader-total { color: #654321; font-weight: 800; font-size: 20px; }
-        .leader-target-card {
-            background: rgba(255,255,255,0.9);
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            padding: 18px;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .leader-target-title { font-size: 18px; font-weight: 600; color: var(--brown-dark); text-align: right; }
-        .leader-target-meta { font-size: 12px; color: var(--muted); text-align: right; }
-        .leader-target-progress-bar {
-            position: relative;
-            width: 100%;
-            height: 26px;
-            background: #ededed;
-            border-radius: 14px;
-            overflow: hidden;
-        }
-        .leader-target-progress-fill {
-            position: absolute;
-            top: 0; right: 0; bottom: 0;
-            background: linear-gradient(90deg, #b9f6ab, #7fe76a);
-            border-radius: 14px;
-            transition: width 0.6s ease;
-        }
-        .leader-target-progress-text {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 500;
-            color: #1f2d0a;
-            direction: rtl;
-        }
-        .live-donors-area {
-            flex: 1 1 75%;
-            min-width: 0;
-            overflow: hidden;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-        /* כרטיסיית סיכום היעד הכללי – קבועה מעל אזור המתרימים בלבד, לא משפיעה על עמודת המובילים */
-        .live-overall-summary-bar {
-            flex-shrink: 0;
-            position: relative;
-            background: url("https://bestfile.io/en/GOFjC7IH9ty19mr/preview") center/cover no-repeat;
-            border-bottom: 3px solid var(--primary-gold);
-            padding: 12px 18px;
-            box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 10;
-            overflow: hidden;
-        }
-        .live-overall-summary-bar::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: rgba(255, 255, 255, 0.2);
-            z-index: 0;
-        }
-        .live-overall-summary-bar .group-header-title,
-        .live-overall-summary-bar .group-header-progress-container,
-        .live-overall-summary-bar .group-header-info { position: relative; z-index: 1; }
-        .live-overall-summary-bar .group-header-title { font-size: 20px; }
-        .live-overall-summary-bar .group-header-progress-bar { height: 20px; }
-        .live-overall-summary-bar .group-header-progress-fill {
-            background: linear-gradient(90deg, #B8860B 0%, #D4AF37 20%, #FFD700 50%, #D4AF37 80%, #B8860B 100%) !important;
-            box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
-        }
-        .live-donors-container {
-            flex: 1;
-            min-height: 0;
-            width: 100%;
-            overflow: hidden;
-            position: relative;
-            background: url("https://i.postimg.cc/PqpcB8WP/rq'-khh-lmsk.jpg") center/cover no-repeat;
-        }
-        .live-donors-scroll-viewport {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            position: relative;
-        }
-        .live-donors-scroll-viewport.scroll-type-tv {
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-            scroll-behavior: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            contain: paint;
-            scroll-snap-type: none;
-        }
-        .live-donors-scroll-viewport.scroll-type-tv::-webkit-scrollbar { display: none; }
-        .live-donors-scroll-viewport.scroll-type-tv .live-donors-scroll {
-            will-change: auto;
-            transform: none;
-        }
-        /* גלילת מתרימים – transform + CSS animation (כמו scroll-wrapper/scroll-content) */
-        .live-donors-scroll-viewport.scroll-type-transform-animation .live-donors-scroll-inner {
-            position: absolute;
-            width: 100%;
-            left: 0;
-            top: 0;
-            display: flex;
-            flex-direction: column;
-        }
-        .live-donors-scroll-viewport.scroll-type-transform-animation .live-donors-scroll-inner > .live-donors-scroll { flex-shrink: 0; }
-        .live-donors-scroll-clone { display: none; flex-shrink: 0; }
-        .live-donors-scroll-viewport.scroll-type-transform-animation .live-donors-scroll-clone { display: flex; flex-shrink: 0; }
-        .live-donors-scroll-inner[data-donors-scroll] {
-            animation: donorsScrollUp var(--donors-scroll-duration, 60s) linear infinite;
-            will-change: transform;
-            backface-visibility: hidden;
-        }
-        @keyframes donorsScrollUp {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-50%); }
-        }
-        /* גלילה חלקה לטלוויזיות חכמות - CSS בלבד */
-        .live-donors-scroll-viewport.scroll-type-css-smooth {
-            overflow: hidden;
-        }
-        .live-donors-scroll-viewport.scroll-type-css-smooth .live-donors-scroll-inner {
-            position: absolute;
-            width: 100%;
-            left: 0;
-            top: 0;
-            display: flex;
-            flex-direction: column;
-        }
-        .live-donors-scroll-viewport.scroll-type-css-smooth .live-donors-scroll-inner[data-css-smooth-scroll] {
-            animation: cssSmoothScroll var(--css-smooth-duration, 120s) linear infinite;
-            will-change: transform;
-            backface-visibility: hidden;
-            -webkit-backface-visibility: hidden;
-            transform-style: preserve-3d;
-            -webkit-transform-style: preserve-3d;
-        }
-        .live-donors-scroll-viewport.scroll-type-css-smooth .live-donors-scroll-inner > .live-donors-scroll { flex-shrink: 0; }
-        .live-donors-scroll-viewport.scroll-type-css-smooth .live-donors-scroll-clone { display: flex; flex-shrink: 0; }
-        @keyframes cssSmoothScroll {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(0, -50%, 0); }
-        }
-        .live-donors-scroll {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-            padding: 10px;
-            will-change: transform;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            transform: translateZ(0);
-        }
-        .live-donor-group-header {
-            flex-basis: 100%;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.92);
-            border: 3px solid var(--primary-gold);
-            border-radius: 18px;
-            padding: 18px 22px;
-            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.35);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .group-header-title {
-            text-align: center;
-            font-size: var(--lv-group-name-size, 28px);
-            font-weight: 700;
-            color: var(--brown-dark);
-        }
-        .group-header-progress-container { display: flex; flex-direction: column; gap: 8px; }
-        .group-header-progress-bar {
-            width: 100%;
-            height: 24px;
-            background: rgba(0, 0, 0, 0.08);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .group-header-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
-            border-radius: 12px;
-            transition: width 0.6s ease;
-        }
-        .group-header-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--brown-dark);
-        }
-        .group-header-percentage { color: #4CAF50; font-weight: 700; font-size: 18px; }
-        .group-header-amounts { color: var(--brown-dark); font-variant-numeric: tabular-nums; }
-        .live-donor-card {
-            flex: 0 0 calc((100% - 20px) / 3);
-            background: rgba(255, 255, 255, 0.92);
-            border: 3px solid var(--primary-gold);
-            border-radius: 18px;
-            padding: 14px 18px;
-            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.35);
-            min-height: 110px;
-            display: flex;
-            flex-direction: row-reverse;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 18px;
-            min-width: 0;
-        }
-        .live-donor-progress-circle-wrapper {
-            width: 80px;
-            height: 80px;
-            flex-shrink: 0;
-            margin-left: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .live-donor-progress-circle { width: 100%; height: 100%; position: relative; }
-        .live-donor-progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .live-donor-progress-bg { fill: none; stroke: rgba(212, 175, 55, 0.2); stroke-width: 6; }
-        .live-donor-progress-fill { fill: none; stroke-width: 6; stroke-linecap: round; }
-        .live-donor-percentage {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--brown-dark);
-        }
-        .live-donor-info {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            align-items: flex-start;
-            text-align: left;
-        }
-        .live-donor-name {
-            font-size: var(--lv-donor-name-size, 18px);
-            font-weight: 700;
-            color: var(--brown-dark);
-            margin: 0;
-            line-height: 1.3;
-        }
-        .live-donor-group { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0; }
-        .live-donor-amount { font-size: var(--lv-amount-size, 16px); font-weight: 600; color: var(--brown-dark); }
-        .amount-value, .goal-value { font-variant-numeric: tabular-nums; }
-        .live-total-banner {
-            display: none;
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, var(--primary-gold), var(--primary-gold-dark));
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: 700;
-            z-index: 100;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-        .live-total-banner.active { display: flex; align-items: center; gap: 12px; }
-        /* התראת חירום – אדום, חצי דקה */
-        .live-emergency-banner {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 10005;
-            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #991b1b 100%);
-            color: white;
-            padding: 16px 24px;
-            font-size: 22px;
-            font-weight: 800;
-            text-align: center;
-            box-shadow: 0 4px 24px rgba(185, 28, 28, 0.6);
-            animation: emergencyPulse 1.5s ease-in-out infinite;
-        }
-        .live-emergency-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-        .live-emergency-banner .emergency-title { font-size: 26px; }
-        .live-emergency-banner .emergency-cities { font-size: 18px; opacity: 0.95; }
-        .live-emergency-banner .emergency-instructions { font-size: 16px; opacity: 0.9; }
-        .live-emergency-banner .emergency-countdown {
-            font-size: 20px;
-            font-weight: 700;
-            opacity: 0.9;
-            margin-top: 8px;
-            font-variant-numeric: tabular-nums;
-        }
-        @keyframes emergencyPulse {
-            0%, 100% { box-shadow: 0 4px 24px rgba(185, 28, 28, 0.6); }
-            50% { box-shadow: 0 6px 32px rgba(255, 80, 80, 0.8); }
-        }
-        /* באנר הודעה מותאמת אישית */
-        .live-custom-message-banner {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 10004;
-            background: linear-gradient(135deg, #166534 0%, #22c55e 50%, #15803d 100%);
-            color: white;
-            padding: 20px 24px;
-            font-size: 22px;
-            font-weight: 700;
-            text-align: center;
-            box-shadow: 0 4px 24px rgba(22, 101, 52, 0.6);
-            animation: customMessagePulse 2s ease-in-out infinite;
-        }
-        .live-custom-message-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-        .live-custom-message-banner .custom-message-title { font-size: 32px; font-weight: 800; }
-        .live-custom-message-banner .custom-message-content { font-size: 22px; opacity: 0.95; max-width: 80%; line-height: 1.5; }
-        .live-custom-message-banner .custom-message-countdown {
-            font-size: 16px;
-            font-weight: 500;
-            opacity: 0.8;
-            margin-top: 8px;
-        }
-        @keyframes customMessagePulse {
-            0%, 100% { box-shadow: 0 4px 24px rgba(22, 101, 52, 0.6); }
-            50% { box-shadow: 0 6px 32px rgba(34, 197, 94, 0.8); }
-        }
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.95);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-        .loading-overlay.hidden { display: none; }
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(212,175,55,0.3);
-            border-top-color: var(--primary-gold);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .error-msg { color: #c00; padding: 20px; text-align: center; }
-        /* גלילת מובילים – כמו בתוכנה הראשית */
-        .live-leaders-scroll-inner { will-change: transform; display: flex; flex-direction: column; gap: 0; }
-        .live-leaders-scroll { padding-bottom: 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0; }
-        .live-leaders-scroll-clone { padding-bottom: 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0; }
-        .live-leaders-scroll-inner[data-leaders-scroll] {
-            animation: leadersScrollUp var(--leaders-scroll-duration, 60s) linear infinite;
-            will-change: transform;
-            backface-visibility: hidden;
-        }
-        @keyframes leadersScrollUp {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-50%); }
-        }
-        /* סימון עדכון – מוצג בזמן רענון נתונים */
-        .live-view-update-indicator {
-            display: none;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 502;
-            padding: 10px 24px 14px;
-            background: linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(245, 230, 211, 0.98) 100%);
-            border-top: 2px solid var(--primary-gold);
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
-            direction: rtl;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 6px;
-        }
-        .live-view-update-indicator.show { display: flex !important; }
-        .live-view-update-indicator .update-indicator-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            flex-wrap: wrap;
-            width: 100%;
-        }
-        .live-view-update-indicator .update-indicator-title { font-size: 15px; font-weight: 600; color: var(--brown-dark); }
-        .live-view-update-indicator .update-indicator-percent { font-size: 18px; font-weight: 700; color: var(--primary-gold-dark); min-width: 44px; }
-        .live-view-update-indicator .update-indicator-bar { flex: 1; min-width: 120px; height: 8px; background: rgba(0,0,0,0.12); border-radius: 4px; overflow: hidden; }
-        .live-view-update-indicator .update-indicator-fill { height: 100%; background: linear-gradient(90deg, var(--primary-gold), var(--primary-gold-dark)); border-radius: 4px; transition: width 0.3s ease; }
-        .live-view-update-indicator .update-indicator-warning { font-size: 12px; color: #856404; margin-top: 2px; text-align: center; }
-        /* כפתורי מסך מלא והגדרות */
-        .liveview-top-btn {
-            position: fixed;
-            top: 20px;
-            z-index: 10006;
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(12px);
-            border: 2px solid var(--primary-gold);
-            border-radius: 50%;
-            color: var(--brown-dark);
-            font-size: 22px;
-            cursor: pointer;
-            box-shadow: 0 6px 24px rgba(212, 175, 55, 0.35);
-            transition: all 0.3s ease;
-        }
-        .liveview-top-btn.fullscreen-btn { right: 80px; }
-        .liveview-top-btn.settings-btn { right: 20px; }
-        .liveview-top-btn:hover {
-            background: var(--primary-gold);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 9px 28px rgba(212, 175, 55, 0.45);
-        }
-        .liveview-top-btn.active { background: var(--primary-gold); color: white; }
-        .liveview-top-btn.buttons-hidden {
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(-10px);
-            transition: opacity 0.4s ease, transform 0.4s ease;
-        }
-        .liveview-top-btn:not(.buttons-hidden) {
-            transition: opacity 0.4s ease, transform 0.4s ease;
-        }
-        /* פאנל הגדרות */
-        .liveview-settings-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 20000;
-            background: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .liveview-settings-overlay.show { display: flex !important; }
-        .liveview-settings-modal {
-            background: linear-gradient(135deg, #fff 0%, #fffef8 100%);
-            border: 2px solid var(--primary-gold);
-            border-radius: 16px;
-            max-width: 90vw;
-            max-height: 90vh;
-            overflow: auto;
-            padding: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-            direction: rtl;
-        }
-        .liveview-settings-modal h3 { margin: 0 0 16px; color: var(--brown-dark); }
-        .liveview-settings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        .liveview-setting-group {
-            background: rgba(255,255,255,0.6);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-        }
-        .liveview-setting-group h4 { margin: 0 0 12px; font-size: 16px; color: var(--brown-dark); font-weight: 600; }
-        .liveview-setting-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-        .liveview-setting-row > label:first-child { flex: 1; font-size: 14px; color: var(--brown-dark); }
-        .liveview-setting-row input[type="range"] { flex: 2; max-width: 160px; }
-        .liveview-setting-row span { flex-shrink: 0; min-width: 40px; font-weight: 600; color: var(--primary-gold-dark); }
-        .liveview-setting-row input[type="color"] { width: 48px; height: 32px; border-radius: 6px; cursor: pointer; }
-        .liveview-setting-row select { flex: 2; padding: 6px 10px; border-radius: 6px; font-size: 14px; }
-        .liveview-settings-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-        .liveview-settings-actions .btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            border: 2px solid var(--primary-gold);
-            background: var(--cream);
-            color: var(--brown-dark);
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .liveview-settings-actions .btn:hover { background: var(--primary-gold); color: white; }
-        .liveview-settings-actions .btn-close { background: #e8e8e8; border-color: #999; }
-        .switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .switch-slider {
-            position: absolute; cursor: pointer; inset: 0;
-            background: #cbd5e1; border-radius: 26px; transition: 0.3s;
-        }
-        .switch-slider::before {
-            content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
-            background: white; border-radius: 50%; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .switch input:checked + .switch-slider { background: var(--primary-gold); }
-        .switch input:checked + .switch-slider::before { transform: translateX(22px); }
-        /* אינדיקטור מצב חיבור התראות */
-        .emergency-connection-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 14px;
-            border-radius: 8px;
-            background: rgba(0,0,0,0.05);
-            margin-top: 8px;
-        }
-        .emergency-status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            background: #9ca3af;
-        }
-        .emergency-status-dot.connected { background: #22c55e; }
-        .emergency-status-dot.checking { background: #f59e0b; animation: statusBlink 1s ease-in-out infinite; }
-        .emergency-status-dot.error { background: #ef4444; }
-        @keyframes statusBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .emergency-status-text { font-size: 13px; color: var(--brown-dark); flex: 1; }
-        .emergency-test-btn {
-            padding: 6px 14px;
-            border-radius: 6px;
-            border: 1px solid var(--primary-gold);
-            background: var(--cream);
-            color: var(--brown-dark);
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .emergency-test-btn:hover { background: var(--primary-gold); color: white; }
-        .emergency-test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    </style>
-</head>
-<body>
-    <script>(function(){ try { if (localStorage.getItem('tvModeEnabled') === '1') document.body.classList.add('tv-mode'); } catch(e) {} })();</script>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
-        <p style="margin-top: 16px;">טוען נתונים מנדרים פלוס...</p>
-    </div>
-    <section class="live-view-section" id="liveViewSection">
-        <button class="liveview-top-btn fullscreen-btn" onclick="toggleLiveViewFullscreen()" aria-label="מסך מלא" id="liveviewFullscreenBtn">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" id="liveviewFullscreenIcon">
-                <path d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </button>
-        <button class="liveview-top-btn settings-btn" onclick="openLiveViewSettings()" aria-label="הגדרות">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-        </button>
-        <div class="live-total-banner" id="liveTotalBanner">
-            <span id="liveTotalBannerAmount"></span>
-            <span id="liveTotalBannerPercent" style="display:none;"></span>
-        </div>
-        <div class="live-emergency-banner" id="liveEmergencyBanner">
-            <span class="emergency-title">⚠️ פיקוד הגורף</span>
-            <span class="emergency-cities" id="emergencyCities"></span>
-            <span class="emergency-instructions" id="emergencyInstructions"></span>
-            <span class="emergency-countdown" id="emergencyCountdown"></span>
-        </div>
-        <div class="live-custom-message-banner" id="liveCustomMessageBanner">
-            <span class="custom-message-title" id="customMessageTitle"></span>
-            <span class="custom-message-content" id="customMessageContent"></span>
-            <span class="custom-message-countdown" id="customMessageCountdown"></span>
-        </div>
-        <div class="live-view-update-indicator" id="liveViewUpdateIndicator">
-            <div class="update-indicator-row">
-                <span class="update-indicator-title" id="updateIndicatorTitle">בדיקת סכום</span>
-                <span class="update-indicator-percent" id="updateIndicatorPercent">0%</span>
-                <div class="update-indicator-bar"><div class="update-indicator-fill" id="updateIndicatorFill" style="width: 0%;"></div></div>
-            </div>
-            <div class="update-indicator-warning">כן מלחמה לא מלחמה, אצלנו עד הניצחון זה עד הניצחון ! </div>
-        </div>
-        <div class="live-content">
-            <div class="live-leaders-sidebar" id="leadersSidebar">
-                <div class="live-leaders-backing" id="liveLeadersBacking"></div>
-                <div class="live-leaders-scroll-wrapper" id="leadersScrollWrapper">
-                    <div class="leaders-static-top" id="leadersStaticTop">
-                        <h2 class="leaders-title" id="leadersTitle">מובילים</h2>
-                        <div class="leaders-list leaders-list-top5" id="leadersList"></div>
-                    </div>
-                    <div class="leaders-scroll-area" id="leadersScrollArea">
-                        <div class="live-leaders-scroll-inner" id="leadersScrollInner">
-                            <div class="live-leaders-scroll" id="leadersScrollPrimary">
-                                <div class="leaders-targets-block" id="leadersTargetsBlock"></div>
-                            </div>
-                            <div class="live-leaders-scroll live-leaders-scroll-clone" id="leadersScrollClone"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="live-donors-area">
-                <div class="live-overall-summary-bar" id="liveOverallSummaryBar">
-                    <div class="group-header-title">סיכום היעד הכללי</div>
-                    <div class="group-header-progress-container">
-                        <div class="group-header-progress-bar">
-                            <div class="group-header-progress-fill" id="liveOverallSummaryFill" style="width: 0%"></div>
-                        </div>
-                        <div class="group-header-info">
-                            <span class="group-header-percentage" id="liveOverallSummaryPercent">—</span>
-                            <span class="group-header-amounts" id="liveOverallSummaryAmounts">₪0</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="live-donors-container">
-                    <div class="live-donors-scroll-viewport" id="liveDonorsScrollViewport">
-                        <div class="live-donors-scroll-inner" id="liveDonorsScrollInner">
-                            <div class="live-donors-scroll" id="liveDonorsScroll"></div>
-                            <div class="live-donors-scroll live-donors-scroll-clone" id="liveDonorsScrollClone"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <div class="liveview-settings-overlay" id="liveviewSettingsOverlay" onclick="if(event.target===this)closeLiveViewSettings()">
-        <div class="liveview-settings-modal" onclick="event.stopPropagation()">
-            <h3>הגדרות תצוגת לייב</h3>
-            <div class="liveview-settings-grid">
-                <div class="liveview-setting-group">
-                    <h4>כללי</h4>
-                    <div class="liveview-setting-row">
-                        <label>מצב טלוויזיה (גלילה חלקה, ללא רווח):</label>
-                        <label class="switch">
-                            <input type="checkbox" id="lvTvModeEnabled">
-                            <span class="switch-slider"></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>צבע רקע</h4>
-                    <div class="liveview-setting-row"><label>צבע ראשי:</label><input type="color" id="lvBgColor" value="#f5e6d3"></div>
-                    <div class="liveview-setting-row"><label>צבע משני:</label><input type="color" id="lvBgColor2" value="#fff8dc"></div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>גודל פונטים</h4>
-                    <div class="liveview-setting-row"><label>כותרת מובילים:</label><input type="range" id="lvTitleSize" min="24" max="48" value="32"><span id="lvTitleSizeVal">32px</span></div>
-                    <div class="liveview-setting-row"><label>שם מתרים:</label><input type="range" id="lvDonorNameSize" min="14" max="28" value="18"><span id="lvDonorNameSizeVal">18px</span></div>
-                    <div class="liveview-setting-row"><label>סכום:</label><input type="range" id="lvAmountSize" min="14" max="32" value="16"><span id="lvAmountSizeVal">16px</span></div>
-                    <div class="liveview-setting-row"><label>שם קבוצה:</label><input type="range" id="lvGroupNameSize" min="18" max="36" value="28"><span id="lvGroupNameSizeVal">28px</span></div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>גדלי אזורים</h4>
-                    <div class="liveview-setting-row"><label>רוחב מובילים (%):</label><input type="range" id="lvLeadersWidth" min="20" max="50" value="25"><span id="lvLeadersWidthVal">25%</span></div>
-                    <div class="liveview-setting-row"><label>מרווח אנכי בין כרטיסיות:</label><input type="range" id="lvDonorGapVertical" min="0" max="40" value="10"><span id="lvDonorGapVerticalVal">10px</span></div>
-                    <div class="liveview-setting-row"><label>מרווח אופקי בין כרטיסיות:</label><input type="range" id="lvDonorGapHorizontal" min="0" max="40" value="10"><span id="lvDonorGapHorizontalVal">10px</span></div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>מה להציג</h4>
-                    <div class="liveview-setting-row"><label>הצג עמודת מובילים:</label><label class="switch"><input type="checkbox" id="lvShowLeaders" checked><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>הסתר 5 כרטיסיות מובילים:</label><label class="switch"><input type="checkbox" id="lvHideLeaderCards"><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>הסתר עמודת מובילים:</label><label class="switch"><input type="checkbox" id="lvHideLeadersColumn"><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>פס סיכום כשמובילים מוסתרים:</label><label class="switch"><input type="checkbox" id="lvShowTotalBanner"><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>הצג ברשימת מתרימים:</label><select id="lvDonorsFilter"><option value="with-amount">רק מי שאסף (הסתר מי שלא אסף כלל)</option><option value="all">כל המתרימים</option></select></div>
-                    <div class="liveview-setting-row"><label>מיקום סכום כללי:</label><select id="lvTotalSummaryLocation"><option value="donors">תצוגת לייב (מעל המתרימים)</option><option value="leaders">עמודת המובילים</option></select></div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>גלילה</h4>
-                    <div class="liveview-setting-row"><label>סוג אנימציית גלילה:</label><select id="lvDonorScrollType"><option value="normal">רגיל (מחשב)</option><option value="tv">חלק לטלוויזיה</option><option value="tv-slow">חלק לטלוויזיה (איטי)</option><option value="transform-animation">חלק (transform + CSS animation)</option><option value="css-smooth">חלק לטלוויזיה חכמה (CSS בלבד)</option></select></div>
-                    <div class="liveview-setting-row"><label>גלילה אוטומטית:</label><label class="switch"><input type="checkbox" id="lvEnableAutoScroll" checked><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>מהירות גלילה:</label><input type="range" id="lvDonorsScrollSpeed" min="10" max="100" value="50"><span id="lvDonorsScrollSpeedVal">50</span></div>
-                    <div class="liveview-setting-row"><label>מהירות גלילה (מהיר 100–200):</label><input type="range" id="lvDonorsScrollSpeedFast" min="0" max="200" value="0" title="0 = כבוי, 100–200 = מהירות בפיקסלים לשנייה"><span id="lvDonorsScrollSpeedFastVal">כבוי</span></div>
-                    <div class="liveview-setting-row"><label>גלילה בעמודת מובילים:</label><select id="lvLeadersColumnScroll"><option value="groups">רק קבוצות (כרטיסיות יעדים)</option><option value="both">קבוצות + מובילים (5 הראשונים)</option></select></div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>סדר קבוצות</h4>
-                    <div class="liveview-setting-row"><label>מיין קבוצות:</label><select id="lvGroupsSortBy"><option value="name">שם (א-ב)</option><option value="collected">סכום (גבוה לנמוך)</option><option value="percentage">אחוז יעד</option><option value="custom" selected>סדר מותאם אישית</option></select></div>
-                    <div class="liveview-setting-row" id="lvGroupsCustomOrderRow" style="display: none; flex-direction: column; align-items: stretch;">
-                        <label>סדר הצגה (מופרד בפסיקים או שורות):</label>
-                        <textarea id="lvGroupsCustomOrder" rows="3" placeholder="שיעור א, שיעור ב, שיעור ג, קיבוץ א, קיבוץ ב, קיבוץ גבוה" style="width: 100%; padding: 8px; border-radius: 8px; font-size: 14px; margin-top: 4px;">שיעור א, שיעור ב, שיעור ג, קיבוץ א, קיבוץ ב, קיבוץ גבוה</textarea>
-                    </div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>עדכון אוטומטי</h4>
-                    <div class="liveview-setting-row"><label>תדירות עדכון:</label><select id="lvUpdateInterval"><option value="1">כל דקה</option><option value="2">כל 2 דקות</option><option value="3">כל 3 דקות</option><option value="5">כל 5 דקות</option><option value="10">כל 10 דקות</option><option value="15">כל 15 דקות</option><option value="30">כל 30 דקות</option></select></div>
-                    <div class="liveview-setting-row"><label>סוג העדכון:</label><select id="lvUpdateType"><option value="all">כל העדכונים (נדרים + גליון)</option><option value="nedarim">רק נדרים (סכום + מתרימים)</option><option value="sheet">רק גליון (קבוצות ומתרימים מהגליון)</option></select></div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>התראות חירום (פיקוד העורף)</h4>
-                    <div class="liveview-setting-row"><label>הפעל התראות חירום:</label><label class="switch"><input type="checkbox" id="lvEmergencyAlertsEnabled"><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>סוג התראות:</label><select id="lvEmergencyAlertsMode"><option value="location">רק באזור שלי (לפי מיקום)</option><option value="all">כל ההתראות בארץ</option></select></div>
-                    <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
-                        <label>כתובת שרת:</label>
-                        <input type="text" id="lvEmergencyAlertsApiUrl" value="https://redalert-server-production.up.railway.app" style="padding: 8px; border-radius: 8px; font-size: 14px;">
-                    </div>
-                    <div class="liveview-setting-row"><label>בדיקה כל (שניות):</label><select id="lvEmergencyCheckInterval"><option value="15">15 שניות</option><option value="30" selected>30 שניות</option><option value="60">דקה</option><option value="90">דקה וחצי</option><option value="120">2 דקות</option></select></div>
-                    <div class="liveview-setting-row"><label>משך הצגה (שניות):</label><select id="lvEmergencyDisplayDuration"><option value="30" selected>חצי דקה</option><option value="45">45 שניות</option><option value="60">דקה</option></select></div>
-                    <div class="emergency-connection-status">
-                        <div class="emergency-status-dot" id="emergencyStatusDot"></div>
-                        <span class="emergency-status-text" id="emergencyStatusText">לא נבדק</span>
-                        <button type="button" class="emergency-test-btn" id="emergencyTestBtn" onclick="testEmergencyConnection()">בדוק חיבור</button>
-                        <button type="button" class="emergency-test-btn" onclick="testEmergencyAlert()" style="margin-right: 4px;">התראת טסט</button>
-                    </div>
-                </div>
-                <div class="liveview-setting-group">
-                    <h4>קישורים</h4>
-                    <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-                        <button type="button" class="btn" onclick="window.open('https://drive.google.com/file/d/15tL2Z5rmlg5lbcLT0HK6REdML56_NOFN/view?usp=sharing','_blank')" style="width: 100%;">
-                            🎉 חגיגת ניצחון
-                        </button>
-                        <button type="button" class="btn" onclick="window.open('https://shlomo-yeshiva.github.io/Lottery-system/','_blank')" style="width: 100%;">
-                            🎲 מערכת הגרלות
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="liveview-settings-actions">
-                <button class="btn" onclick="saveLiveViewSettingsFromPanel()">שמור והחל</button>
-                <button class="btn btn-close" onclick="closeLiveViewSettings()">סגור</button>
-            </div>
-        </div>
-    </div>
-    <script>
-(function() {
-    const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxPfLGvFIajSj_gHV9hUgTUon4SrnqvgkvpqX_EybRGCNhMGNCEsnWKgDqfjOWkWJnl/exec';
-    const DEFAULT_DONOR_GOAL = 2100;
+const express = require('express');
+const cors = require('cors');
+const pikudHaoref = require('pikud-haoref-api');
 
-    let donors = [];
-    let groups = [];
-    let totalDonated = 0;
-    let goal = 0;
-    let liveViewSettings = {};
-    let sheetUrl = '';
-    let refreshInterval = null;
-    let donorsScrollHandle = null;
-    let donorsScrollLastTime = 0;
-    let leadersScrollIsRunning = false;
-    let leadersScrollLastTime = 0;
-    let hasLoadedOnce = false;
-    let emergencyAlertsInterval = null;
-    let emergencyBannerHideTimer = null;
-    let emergencyCountdownInterval = null;
-    let customMessageInterval = null;
-    let customMessageHideTimer = null;
-    let customMessageCountdownInterval = null;
-    let userLocation = { lat: null, lng: null };
-    let buttonsHideTimer = null;
-    const BUTTONS_HIDE_DELAY_MS = 3000;
-    let savedDonorsScrollY = null;
-    let savedDonorsScrollRatio = null;
-    let savedLeadersScrollProgress = null;
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    function getUrlParam(name) {
-        const params = new URLSearchParams(location.search);
-        return params.get(name) || '';
-    }
+// Proxy configuration - הגדר את הפרוקסי הישראלי כאן או כ-environment variable
+// Example: ISRAELI_PROXY=http://user:pass@proxy.co.il:8080
+const ISRAELI_PROXY = process.env.ISRAELI_PROXY || null;
+const API_OPTIONS = ISRAELI_PROXY ? { proxy: ISRAELI_PROXY } : {};
 
-    function loadSettings() {
-        const settingsParam = getUrlParam('settings');
-        if (settingsParam) {
-            try {
-                liveViewSettings = JSON.parse(decodeURIComponent(settingsParam));
-            } catch (e) {}
-        }
-        if (Object.keys(liveViewSettings).length === 0 && typeof localStorage !== 'undefined') {
-            try {
-                const saved = localStorage.getItem('liveViewSettings');
-                if (saved) liveViewSettings = JSON.parse(saved);
-            } catch (e) {}
-        }
-        sheetUrl = getUrlParam('sheetUrl') || (typeof localStorage !== 'undefined' ? localStorage.getItem('googleSheetsWebAppUrl') : '') || DEFAULT_SHEET_URL;
-        liveViewSettings = {
-            bgColor: '#f5e6d3',
-            bgColor2: '#fff8dc',
-            titleSize: 32,
-            donorNameSize: 18,
-            amountSize: 16,
-            groupNameSize: 28,
-            donorGroupSize: 13,
-            hideLeadersColumn: false,
-            hideLeaderCards: false,
-            showTotalBanner: false,
-            leadersWidth: 25,
-            donorsWidth: 75,
-            leadersGap: 14,
-            donorGapVertical: 10,
-            donorGapHorizontal: 10,
-            donorScrollType: 'normal',
-            enableAutoScroll: true,
-            donorsScrollSpeed: 50,
-            donorsScrollSpeedFast: 0,
-            groupsSortBy: 'custom',
-            groupsCustomOrder: 'שיעור א, שיעור ב, שיעור ג, קיבוץ א, קיבוץ ב, קיבוץ גבוה',
-            donorsSortBy: 'name',
-            donorsFilter: 'with-amount',
-            leadersColumnScroll: 'groups',
-            totalSummaryLocation: 'donors',
-            updateIntervalMinutes: 5,
-            updateType: 'all',
-            tvModeEnabled: false,
-            emergencyAlertsEnabled: true,
-            emergencyAlertsApiUrl: 'https://redalert-server-production.up.railway.app',
-            emergencyAlertsMode: 'location',
-            emergencyCheckIntervalSeconds: 30,
-            emergencyDisplayDurationSeconds: 30,
-            ...liveViewSettings
-        };
-        // עדכון אוטומטי מכתובת ישנה לחדשה
-        if (liveViewSettings.emergencyAlertsApiUrl === 'http://localhost:3000' || !liveViewSettings.emergencyAlertsApiUrl) {
-            liveViewSettings.emergencyAlertsApiUrl = 'https://redalert-server-production.up.railway.app';
-            try { localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings)); } catch(e) {}
-        }
-        const oldGap = liveViewSettings.donorGap;
-        if (liveViewSettings.donorGapVertical == null) liveViewSettings.donorGapVertical = oldGap ?? 10;
-        if (liveViewSettings.donorGapHorizontal == null) liveViewSettings.donorGapHorizontal = oldGap ?? 10;
-        if (liveViewSettings.tvModeEnabled === undefined && typeof localStorage !== 'undefined' && localStorage.getItem('tvModeEnabled') === '1') {
-            liveViewSettings.tvModeEnabled = true;
-        }
-    }
+app.use(cors());
+app.use(express.json());
 
-    /** השוואה גמישה של groupId – מטפלת בהבדלי טיפוס, scientific notation, "group1" מול 1 */
-    function groupIdsMatch(donorGroupId, groupId) {
-        const a = donorGroupId;
-        const b = groupId;
-        if (a == null && b == null) return true;
-        if (a === b) return true;
-        const sa = String(a ?? '').trim();
-        const sb = String(b ?? '').trim();
-        if (sa === sb) return true;
-        const na = parseFloat(sa);
-        const nb = parseFloat(sb);
-        if (!isNaN(na) && !isNaN(nb) && na === nb) return true;
-        const numFromGroupPref = (s) => { const m = /^group(\d+)$/i.exec(s); return m ? parseInt(m[1], 10) : NaN; };
-        const na2 = numFromGroupPref(sa);
-        const nb2 = numFromGroupPref(sb);
-        if (!isNaN(na2) && na2 === nb) return true;
-        if (!isNaN(nb2) && nb2 === na) return true;
-        if (!isNaN(na2) && !isNaN(nb2) && na2 === nb2) return true;
-        return false;
-    }
+let lastAlert = null;
+let lastAlertTime = 0;
+const ALERT_DISPLAY_DURATION = 120000; // 2 דקות במקום דקה
 
-    /** מחזיר את הקבוצה שמתרים שייך אליה – groupId גמיש + fallback לפי groupName */
-    function getGroupForDonor(donor) {
-        if (!donor || !Array.isArray(groups) || groups.length === 0) return null;
-        const byId = groups.find(g => groupIdsMatch(donor.groupId, g.id));
-        if (byId) return byId;
-        const dn = (donor.groupName || '').toString().trim();
-        if (!dn) return null;
-        const donorMatchesAnyByGroupId = groups.some(g => groupIdsMatch(donor.groupId, g.id));
-        if (donorMatchesAnyByGroupId) return null;
-        return groups.find(g => (g.name || '').toString().trim() === dn) || null;
-    }
+// לוג של כל ההתראות שהתקבלו
+let alertHistory = [];
 
-    /** נרמול groupId – מתאים מתרים לקבוצה הנכונה לפי groupId או groupName */
-    function normalizeDonorGroup(donor) {
-        if (!donor || !(donor.name || '').trim()) return donor;
-        const match = getGroupForDonor(donor);
-        if (match) {
-            donor.groupId = match.id;
-            donor.groupName = match.name || '';
-        }
-        return donor;
-    }
+// מצב API וסיבת שגיאה
+let apiStatus = {
+    working: null,
+    lastError: null,
+    lastCheck: null,
+    proxyConfigured: !!ISRAELI_PROXY
+};
 
-    async function fetchApi(url, params, opts = {}) {
-        const u = (url || '').trim();
-        if (!u) throw new Error('חסרה כתובת API');
-        const qs = new URLSearchParams(params).toString();
-        const fullUrl = u + (u.includes('?') ? '&' : '?') + qs;
-        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timeout = opts.timeout || 30000;
-        if (ctrl) setTimeout(() => ctrl.abort(), timeout);
-        const res = await fetch(fullUrl, { method: 'GET', redirect: 'follow', signal: ctrl ? ctrl.signal : undefined });
-        const text = await res.text();
-        if (!res.ok) throw new Error('שגיאת שרת: ' + res.status);
-        return JSON.parse(text || '{}');
-    }
-
-    async function loadData() {
-        const url = sheetUrl;
-        if (!url) throw new Error('נא להגדיר כתובת Web App. פתח את הקובץ הראשי והגדר בהגדרות סנכרון.');
-
-        console.log('📊 טוען נתונים...');
-
-        // טען סכום כללי וגליון
-        const promises = [
-            fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(e => { console.error('❌ שגיאה בטעינת סכום:', e); return { success: false }; }),
-            fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 30000 }).catch(e => { console.error('❌ שגיאה בטעינת גליון:', e); return { success: false }; })
-        ];
-
-        const [totalRes, sheetRes] = await Promise.all(promises);
-
-        console.log('📈 תוצאת סכום:', totalRes);
-        console.log('📋 תוצאת גליון:', sheetRes);
-
-        // עדכן סכום כללי
-        if (totalRes.success && totalRes.totalDonated !== undefined) {
-            totalDonated = parseInt(totalRes.totalDonated) || 0;
-            goal = parseInt(totalRes.goal) || 0;
-            console.log('✅ סכום כללי מנדרים:', totalDonated, 'יעד:', goal);
-        }
-
-        const sheetDonors = (sheetRes.donors || []);
-        const sheetGroups = (sheetRes.groups || []);
-        
-        console.log('📋 מספר מתרימים מגליון:', sheetDonors.length);
-        console.log('📁 מספר קבוצות:', sheetGroups.length);
-
-        if (sheetDonors.length > 0 && sheetGroups.length > 0) {
-            groups = sheetGroups;
-            donors = sheetDonors.map(d => {
-                const amount = parseInt(d.amount) || 0;
-                const name = (d.displayName || d.name || '').trim();
-                const personalGoal = Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL));
-                return {
-                    id: d.id,
-                    name,
-                    displayName: d.displayName || name,
-                    amount,
-                    groupId: d.groupId,
-                    groupName: (d.groupName || d.group || '').toString().trim(),
-                    personalGoal: personalGoal || DEFAULT_DONOR_GOAL
-                };
-            });
-            donors = donors.map(normalizeDonorGroup).filter(Boolean);
-            
-            // חשב סכום כולל מהמתרימים
-            const totalFromDonors = donors.reduce((sum, d) => sum + (d.amount || 0), 0);
-            console.log('💰 סכום כולל ממתרימים בגליון:', totalFromDonors);
-            
-            // אם אין סכום מנדרים, השתמש בסכום מהגליון
-            if (totalDonated === 0) {
-                totalDonated = totalFromDonors;
-            }
-        } else if (sheetDonors.length > 0) {
-            // יש מתרימים בלי קבוצות
-            groups = [];
-            donors = sheetDonors.map(d => ({
-                id: d.id,
-                name: (d.displayName || d.name || '').trim(),
-                displayName: d.displayName || d.name || '',
-                amount: parseInt(d.amount) || 0,
-                groupId: null,
-                groupName: '',
-                personalGoal: DEFAULT_DONOR_GOAL
-            })).filter(d => d.name);
-        } else {
-            console.warn('⚠️ לא נמצאו נתונים בגליון');
-            groups = [];
-            donors = [];
-        }
-
-        if (totalDonated === 0 && donors.length > 0) {
-            totalDonated = donors.reduce((s, d) => s + (d.amount || 0), 0);
-        }
-    }
-
-    function escapeHtml(s) {
-        if (!s) return '';
-        const div = document.createElement('div');
-        div.textContent = s;
-        return div.innerHTML;
-    }
-
-    function getProgressColor(percentage) {
-        const percent = Math.max(0, percentage || 0);
-        if (percent >= 140) return '#1aff6c';
-        if (percent === 100 || percent > 100) return '#1abc3f';
-        if (percent >= 85) return '#3ed45b';
-        if (percent >= 70) return '#7de680';
-        if (percent >= 50) return '#ffb347';
-        if (percent >= 30) return '#ff8a33';
-        if (percent >= 10) return '#ff5a3c';
-        if (percent > 0) return '#d62828';
-        return '#b91c1c';
-    }
-
-    function createProgressCircle(percentage, uniqueId, originalPercentage) {
-        const size = 80;
-        const strokeWidth = 6;
-        const radius = (size - strokeWidth) / 2;
-        const circumference = 2 * Math.PI * radius;
-        const displayPercentage = Math.min(percentage, 100);
-        const offset = circumference - (displayPercentage / 100) * circumference;
-        const percentForColor = originalPercentage !== undefined ? originalPercentage : percentage;
-        const strokeColor = getProgressColor(percentForColor);
-        return `
-            <div class="live-donor-progress-circle">
-                <svg width="100%" height="100%" viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet">
-                    <circle class="live-donor-progress-bg" cx="${size/2}" cy="${size/2}" r="${radius}"></circle>
-                    <circle class="live-donor-progress-fill"
-                            cx="${size/2}" cy="${size/2}" r="${radius}"
-                            stroke="${strokeColor}"
-                            stroke-dasharray="${circumference}"
-                            stroke-dashoffset="${offset}"
-                            data-circumference="${circumference}"></circle>
-                </svg>
-                <div class="live-donor-percentage">${Math.round(percentForColor)}%</div>
-            </div>
-        `;
-    }
-
-    function getDonorsForGroup(group) {
-        if (!group) return [];
-        return donors.filter(d => {
-            const g = getGroupForDonor(d);
-            return g && groupIdsMatch(g.id, group.id);
-        });
-    }
-
-    function saveLeadersScrollState() {
-        const inner = document.getElementById('leadersScrollInner');
-        const content = liveViewSettings.leadersColumnScroll === 'both'
-            ? document.getElementById('leadersScrollPrimary')
-            : document.getElementById('leadersTargetsBlock');
-        if (!inner || !content || !content.children.length) return;
-        const style = getComputedStyle(inner);
-        const transform = style.transform;
-        if (transform && transform !== 'none') {
-            let translateY = 0;
-            const m2d = transform.match(/matrix\([^,]+,\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*(-?[\d.]+)\)/);
-            const m3d = transform.match(/matrix3d\([^)]+\)/);
-            if (m2d) translateY = parseFloat(m2d[1]) || 0;
-            else if (m3d) {
-                const parts = m3d[0].split(',');
-                if (parts.length >= 14) translateY = parseFloat(parts[13].trim()) || 0;
-            }
-            const contentHeight = content.offsetHeight;
-            if (contentHeight > 0 && translateY !== 0) {
-                savedLeadersScrollProgress = Math.min(1, Math.max(0, Math.abs(translateY) / contentHeight));
-            }
-        }
-    }
-
-    function render() {
-        saveLeadersScrollState();
-        const leadersList = document.getElementById('leadersList');
-        const donorsScroll = document.getElementById('liveDonorsScroll');
-        const leadersSidebar = document.getElementById('leadersSidebar');
-        const leadersTitle = document.getElementById('leadersTitle');
-        const banner = document.getElementById('liveTotalBanner');
-        const bannerAmount = document.getElementById('liveTotalBannerAmount');
-        const bannerPercent = document.getElementById('liveTotalBannerPercent');
-
-        const hideCol = liveViewSettings.hideLeadersColumn;
-        const hideCards = liveViewSettings.hideLeaderCards;
-        const showBanner = liveViewSettings.showTotalBanner && hideCol;
-
-        if (leadersSidebar) {
-            leadersSidebar.style.display = hideCol ? 'none' : 'flex';
-            leadersSidebar.style.width = hideCol ? '0%' : (liveViewSettings.leadersWidth || 25) + '%';
-        }
-        const leadersStaticTop = document.getElementById('leadersStaticTop');
-        if (leadersTitle) leadersTitle.style.display = hideCards ? 'none' : 'block';
-        if (leadersStaticTop) leadersStaticTop.style.display = hideCards ? 'none' : 'block';
-        if (banner) {
-            banner.classList.toggle('active', showBanner);
-            if (showBanner && bannerAmount) bannerAmount.textContent = '₪' + totalDonated.toLocaleString();
-            if (showBanner && bannerPercent && goal > 0) {
-                const pct = (totalDonated / goal * 100).toFixed(1);
-                bannerPercent.textContent = pct + '%';
-                bannerPercent.style.display = '';
-            }
-        }
-
-        document.body.style.background = `linear-gradient(135deg, ${liveViewSettings.bgColor || '#f5e6d3'} 0%, ${liveViewSettings.bgColor2 || '#fff8dc'} 100%)`;
-        const backing = document.getElementById('liveLeadersBacking');
-        if (backing) backing.style.background = `linear-gradient(135deg, ${liveViewSettings.bgColor || '#f5e6d3'} 0%, ${liveViewSettings.bgColor2 || '#fff8dc'} 100%)`;
-        document.documentElement.style.setProperty('--lv-title-size', (liveViewSettings.titleSize || 32) + 'px');
-        document.documentElement.style.setProperty('--lv-donor-name-size', (liveViewSettings.donorNameSize || 18) + 'px');
-        document.documentElement.style.setProperty('--lv-amount-size', (liveViewSettings.amountSize || 16) + 'px');
-        document.documentElement.style.setProperty('--lv-group-name-size', (liveViewSettings.groupNameSize || 28) + 'px');
-
-        const sortedDonors = [...donors].filter(d => (d.name || '').trim() && (d.amount || 0) > 0).sort((a, b) => (b.amount || 0) - (a.amount || 0));
-        const top5 = sortedDonors.slice(0, 5);
-        const pct = goal > 0 ? Math.min(100, (totalDonated / goal) * 100) : 0;
-        const pctText = goal > 0 ? (pct >= 100 ? Math.round(pct) : pct.toFixed(1)) + '%' : '';
-        const summaryText = goal > 0 ? `₪${totalDonated.toLocaleString()} מתוך ₪${goal.toLocaleString()} | ${pctText}` : `₪${totalDonated.toLocaleString()}`;
-        const totalDonorsCount = donors.filter(d => (d.name || '').trim()).length;
-
-        let visibleGroups = groups.filter(g => g.showInLiveView !== false);
-        const sortBy = liveViewSettings.groupsSortBy || 'name';
-        const customOrder = (liveViewSettings.groupsCustomOrder || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-        if (sortBy === 'custom' && customOrder.length > 0) {
-            const orderMap = new Map();
-            customOrder.forEach((name, idx) => {
-                const key = (name || '').toLowerCase();
-                if (!orderMap.has(key)) orderMap.set(key, idx);
-            });
-            visibleGroups = [...visibleGroups].sort((a, b) => {
-                const nameA = (a.name || '').trim();
-                const nameB = (b.name || '').trim();
-                const idxA = orderMap.get(nameA.toLowerCase());
-                const idxB = orderMap.get(nameB.toLowerCase());
-                if (idxA != null && idxB != null) return idxA - idxB;
-                if (idxA != null) return -1;
-                if (idxB != null) return 1;
-                return nameA.localeCompare(nameB, 'he');
-            });
-        } else {
-            visibleGroups = [...visibleGroups].sort((a, b) => {
-                const gDonorsA = getDonorsForGroup(a);
-                const gDonorsB = getDonorsForGroup(b);
-                const collectedA = gDonorsA.reduce((s, d) => s + (d.amount || 0), 0);
-                const collectedB = gDonorsB.reduce((s, d) => s + (d.amount || 0), 0);
-                const pctA = (a.goal || 0) > 0 ? (collectedA / a.goal) * 100 : 0;
-                const pctB = (b.goal || 0) > 0 ? (collectedB / b.goal) * 100 : 0;
-                if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'he');
-                if (sortBy === 'collected') return collectedB - collectedA;
-                if (sortBy === 'percentage') return pctB - pctA;
-                return (a.name || '').localeCompare(b.name || '', 'he');
-            });
-        }
-        const groupsCardsHtml = visibleGroups.map(g => {
-            const gDonors = getDonorsForGroup(g);
-            const collected = gDonors.reduce((s, d) => s + (d.amount || 0), 0);
-            const gGoal = g.goal || 0;
-            const gPct = gGoal > 0 ? Math.min(100, (collected / gGoal) * 100) : 0;
-            const gText = gGoal > 0 ? `₪${collected.toLocaleString()} מתוך ₪${gGoal.toLocaleString()} | ${gPct.toFixed(1)}%` : `₪${collected.toLocaleString()} | ללא יעד מוגדר`;
-            return `<div class="leader-target-card" data-group-id="${g.id || ''}">
-                <div class="leader-target-title">${escapeHtml(g.name || '')}</div>
-                <div class="leader-target-meta">מספר מתרימים: ${gDonors.length}</div>
-                <div class="leader-target-progress-bar">
-                    <div class="leader-target-progress-fill" style="width:${gPct}%"></div>
-                    <div class="leader-target-progress-text">${gText}</div>
-                </div>
-            </div>`;
-        }).join('');
-
-        const summaryCardHtml = `<div class="leader-target-card" data-summary="overall">
-            <div class="leader-target-title">סה"כ נאסף</div>
-            <div class="leader-target-meta" style="color:white;">${totalDonorsCount} מתרימים</div>
-            <div class="leader-target-progress-bar">
-                <div class="leader-target-progress-fill" style="width:${pct}%"></div>
-                <div class="leader-target-progress-text">${summaryText}</div>
-            </div>
-        </div>`;
-
-        const leadersHtml = hideCards ? '' : top5.map((d, i) => {
-            const rank = i + 1;
-            return `<div class="leader-item rank-${rank}">
-                <div class="leader-rank">${rank}</div>
-                <div class="leader-info"><div class="leader-name">${escapeHtml(d.displayName || d.name)}</div></div>
-                <div class="leader-total">₪${(d.amount||0).toLocaleString()}</div>
-            </div>`;
-        }).join('');
-
-        const leadersTargetsBlock = document.getElementById('leadersTargetsBlock');
-        const leadersScrollMode = liveViewSettings.leadersColumnScroll || 'groups';
-        const totalSummaryLoc = liveViewSettings.totalSummaryLocation || 'donors';
-        if (leadersList) leadersList.innerHTML = leadersHtml;
-        if (leadersTargetsBlock) leadersTargetsBlock.innerHTML = groupsCardsHtml + (totalSummaryLoc === 'leaders' ? summaryCardHtml : '');
-        const primary = document.getElementById('leadersScrollPrimary');
-        const staticTop = document.getElementById('leadersStaticTop');
-        if (leadersList && primary && staticTop && !hideCards) {
-            if (leadersScrollMode === 'both') {
-                leadersList.classList.add('leaders-in-scroll');
-                if (leadersList.parentNode !== primary) {
-                    leadersList.remove();
-                    primary.insertBefore(leadersList, leadersTargetsBlock);
-                }
-            } else {
-                leadersList.classList.remove('leaders-in-scroll');
-                if (leadersList.parentNode !== staticTop) {
-                    leadersList.remove();
-                    staticTop.appendChild(leadersList);
-                }
-            }
-        } else if (leadersList && staticTop && (hideCards || leadersScrollMode === 'groups')) {
-            leadersList.classList.remove('leaders-in-scroll');
-            if (leadersList.parentNode !== staticTop) {
-                leadersList.remove();
-                staticTop.appendChild(leadersList);
-            }
-        }
-
-        const donorsSortBy = 'name';
-        const donorsFilter = liveViewSettings.donorsFilter || 'with-amount';
-        const donorsByGroup = new Map();
-        donors.filter(d => {
-            if (!(d.name || '').trim()) return false;
-            if (donorsFilter === 'with-amount' && (d.amount || 0) <= 0) return false;
-            return true;
-        }).forEach(d => {
-            const g = getGroupForDonor(d);
-            const gid = g ? String(g.id) : '_ungrouped';
-            if (!donorsByGroup.has(gid)) donorsByGroup.set(gid, []);
-            donorsByGroup.get(gid).push(d);
-        });
-        const groupRenderOrder = visibleGroups.length > 0
-            ? [...visibleGroups.map(g => g.id || '').filter(Boolean), ...(donorsByGroup.has('_ungrouped') ? ['_ungrouped'] : [])]
-            : ['_ungrouped'];
-        /* עדכון כרטיסיית סיכום היעד הכללי – קבועה מעל אזור המתרימים */
-        const overallPct = goal > 0 ? Math.min(100, (totalDonated / goal) * 100) : 0;
-        const overallProgressWidth = Math.min(overallPct, 100);
-        const overallAmountsText = goal > 0
-            ? `₪${totalDonated.toLocaleString()} מתוך ₪${goal.toLocaleString()}`
-            : `₪${totalDonated.toLocaleString()} | ללא יעד מוגדר`;
-        const summaryBar = document.getElementById('liveOverallSummaryBar');
-        const fillEl = document.getElementById('liveOverallSummaryFill');
-        const percentEl = document.getElementById('liveOverallSummaryPercent');
-        const amountsEl = document.getElementById('liveOverallSummaryAmounts');
-        if (summaryBar) summaryBar.style.display = totalSummaryLoc === 'donors' ? '' : 'none';
-        if (fillEl) fillEl.style.width = overallProgressWidth + '%';
-        if (percentEl) percentEl.textContent = goal > 0 ? overallPct.toFixed(1) + '%' : '—';
-        if (amountsEl) amountsEl.textContent = overallAmountsText;
-
-        let itemCounter = 0;
-        const htmlParts = [];
-        groupRenderOrder.forEach(groupId => {
-            let donorsInGroup = donorsByGroup.get(String(groupId)) || donorsByGroup.get(groupId) || [];
-            if (donorsInGroup.length === 0) return;
-            const group = groups.find(g => String(g.id || '') === groupId);
-            const groupName = group ? (group.name || '').toString().trim() || ('קבוצה ' + groupId) : (groupId === '_ungrouped' ? 'ללא קבוצה' : 'קבוצה ' + groupId);
-            if (donorsSortBy === 'name') donorsInGroup = [...donorsInGroup].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
-            else if (donorsSortBy === 'amount') donorsInGroup = [...donorsInGroup].sort((a, b) => (b.amount || 0) - (a.amount || 0));
-            else if (donorsSortBy === 'percentage') donorsInGroup = [...donorsInGroup].sort((a, b) => {
-                const ap = (a.personalGoal || 0) > 0 ? (a.amount / a.personalGoal) * 100 : 0;
-                const bp = (b.personalGoal || 0) > 0 ? (b.amount / b.personalGoal) * 100 : 0;
-                return bp - ap;
-            });
-            const groupCollected = donorsInGroup.reduce((s, d) => s + (d.amount || 0), 0);
-            const groupGoal = group ? (group.goal || 0) : 0;
-            const groupPercentage = groupGoal > 0 ? (groupCollected / groupGoal) * 100 : 0;
-            const progressWidth = Math.min(groupPercentage, 100);
-            const amountsText = groupGoal > 0 
-                ? `₪${groupCollected.toLocaleString()} מתוך ₪${groupGoal.toLocaleString()}`
-                : `₪${groupCollected.toLocaleString()} | ללא יעד מוגדר`;
-            htmlParts.push(`
-                <div class="live-donor-group-header" data-group-id="${groupId}">
-                    <div class="group-header-title">${escapeHtml(groupName)}</div>
-                    <div class="group-header-progress-container">
-                        <div class="group-header-progress-bar">
-                            <div class="group-header-progress-fill" style="width: ${progressWidth}%"></div>
-                        </div>
-                        <div class="group-header-info">
-                            <span class="group-header-percentage">${groupGoal > 0 ? `${Math.min(100, groupPercentage).toFixed(1)}%` : '—'}</span>
-                            <span class="group-header-amounts">${amountsText}</span>
-                        </div>
-                    </div>
-                </div>
-            `);
-            donorsInGroup.forEach(donor => {
-                const personalGoal = donor.personalGoal || DEFAULT_DONOR_GOAL;
-                const percentage = personalGoal > 0 ? (donor.amount / personalGoal) * 100 : 0;
-                const uniqueId = 'donor_' + (donor.id || '') + '_' + (itemCounter++);
-                htmlParts.push(`
-                    <div class="live-donor-card" data-donor-id="${donor.id || ''}">
-                        <div class="live-donor-progress-circle-wrapper">
-                            ${createProgressCircle(Math.min(percentage, 100), uniqueId, percentage)}
-                        </div>
-                        <div class="live-donor-info">
-                            <div class="live-donor-name">${escapeHtml(donor.displayName || donor.name)}</div>
-                            <div class="live-donor-group">${escapeHtml(groupName)}</div>
-                            <div class="live-donor-amount">
-                                <span class="amount-value">${(donor.amount || 0).toLocaleString()}</span>
-                                מתוך
-                                <span class="goal-value">${personalGoal.toLocaleString()}</span>
-                                ש"ח
-                            </div>
-                        </div>
-                    </div>
-                `);
-            });
-        });
-
-        const donorCardsHtml = htmlParts.join('');
-        const scrollType = liveViewSettings.donorScrollType || 'normal';
-        const useTransformAnimation = scrollType === 'transform-animation';
-        const useCssSmooth = scrollType === 'css-smooth';
-        const donorsClone = document.getElementById('liveDonorsScrollClone');
-        if (donorsScroll) {
-            stopDonorsScroll();
-            if ((useTransformAnimation || useCssSmooth) && donorsClone) {
-                donorsScroll.innerHTML = donorCardsHtml;
-                donorsClone.innerHTML = donorCardsHtml;
-            } else {
-                donorsScroll.innerHTML = donorCardsHtml + donorCardsHtml;
-            }
-            const v = Math.max(0, parseInt(liveViewSettings.donorGapVertical, 10) ?? 10);
-            const h = Math.max(0, parseInt(liveViewSettings.donorGapHorizontal, 10) ?? 10);
-            donorsScroll.style.setProperty('gap', v + 'px ' + h + 'px', 'important');
-            if (donorsClone) donorsClone.style.setProperty('gap', v + 'px ' + h + 'px', 'important');
-        }
-        const viewport = document.getElementById('liveDonorsScrollViewport');
-        if (viewport) {
-            viewport.classList.toggle('scroll-type-tv', scrollType === 'tv' || scrollType === 'tv-slow');
-            viewport.classList.toggle('scroll-type-transform-animation', scrollType === 'transform-animation');
-            viewport.classList.toggle('scroll-type-css-smooth', scrollType === 'css-smooth');
-        }
-
-        if (liveViewSettings.enableAutoScroll && donorsScroll) {
-            requestAnimationFrame(() => requestAnimationFrame(() => startDonorsScroll()));
-        }
-        requestAnimationFrame(() => requestAnimationFrame(() => startLeadersScroll()));
-    }
-
-    function startDonorsScroll() {
-        const container = document.getElementById('liveDonorsScroll');
-        const viewport = document.getElementById('liveDonorsScrollViewport');
-        const scrollInner = document.getElementById('liveDonorsScrollInner');
-        if (!container || donorsScrollHandle) return;
-        const scrollType = liveViewSettings.donorScrollType || 'normal';
-        const useTvScroll = scrollType === 'tv' || scrollType === 'tv-slow';
-        const useTransformAnimation = scrollType === 'transform-animation';
-        const useCssSmooth = scrollType === 'css-smooth';
-        const half = (useTransformAnimation || useCssSmooth) && scrollInner
-            ? container.offsetHeight
-            : (container.scrollHeight / 2);
-        if (!half || !isFinite(half) || half < 100) return;
-
-        let speed;
-        const fastVal = parseInt(liveViewSettings.donorsScrollSpeedFast, 10) || 0;
-        if (fastVal >= 100 && fastVal <= 200) {
-            speed = fastVal;
-        } else {
-            const speedValue = Math.max(10, Math.min(100, liveViewSettings.donorsScrollSpeed || 50));
-            speed = 5 + (speedValue - 10) * 65 / 90;
-        }
-
-        // CSS Smooth - גלילה חלקה לטלוויזיות חכמות
-        if (useCssSmooth && scrollInner) {
-            const durationMs = Math.round((half / speed) * 1000);
-            scrollInner.style.setProperty('--css-smooth-duration', durationMs + 'ms');
-            scrollInner.removeAttribute('data-donors-scroll');
-            scrollInner.removeAttribute('data-css-smooth-scroll');
-            
-            // שחזר מיקום גלילה אם יש
-            const ratio = savedDonorsScrollRatio;
-            savedDonorsScrollRatio = null;
-            if (ratio != null && ratio > 0 && ratio < 1) {
-                scrollInner.style.animationDelay = '-' + (ratio * durationMs) + 'ms';
-            } else {
-                scrollInner.style.animationDelay = '';
-            }
-            
-            scrollInner.style.transform = '';
-            scrollInner.offsetHeight; // Force reflow
-            scrollInner.setAttribute('data-css-smooth-scroll', '1');
-            donorsScrollHandle = 1;
-            donorsScrollLastTime = performance.now();
-            return;
-        }
-
-        if (useTransformAnimation && scrollInner) {
-            const durationMs = Math.round((half / speed) * 1000);
-            scrollInner.style.setProperty('--donors-scroll-duration', durationMs + 'ms');
-            const ratio = savedDonorsScrollRatio ?? (scrollInner._scrollSavedY != null && scrollInner._scrollSavedY < 0 ? -scrollInner._scrollSavedY / half : null);
-            scrollInner._scrollSavedY = 0;
-            savedDonorsScrollY = null;
-            savedDonorsScrollRatio = null;
-            if (ratio != null && ratio > 0 && ratio < 1) {
-                scrollInner.style.animationDelay = '-' + (ratio * durationMs) + 'ms';
-            } else {
-                scrollInner.style.animationDelay = '';
-            }
-            const onIteration = function() { donorsScrollLastTime = performance.now(); };
-            scrollInner.removeEventListener('animationiteration', onIteration);
-            scrollInner.addEventListener('animationiteration', onIteration);
-            scrollInner.removeAttribute('data-donors-scroll');
-            scrollInner.removeAttribute('data-css-smooth-scroll');
-            scrollInner.offsetHeight;
-            scrollInner.setAttribute('data-donors-scroll', '1');
-            donorsScrollHandle = 1;
-            donorsScrollLastTime = performance.now();
-            return;
-        }
-        if (scrollInner) {
-            scrollInner.removeAttribute('data-donors-scroll');
-            scrollInner.removeAttribute('data-css-smooth-scroll');
-            scrollInner.style.animationDelay = '';
-            scrollInner.style.transform = '';
-        }
-        if (useTvScroll && viewport) {
-            const tvSpeed = scrollType === 'tv-slow' ? speed * 0.5 : speed;
-            const ratio = savedDonorsScrollRatio ?? (container._scrollSavedY != null && container._scrollSavedY >= 0 ? container._scrollSavedY / half : null);
-            viewport.scrollTop = (ratio != null && ratio >= 0 && ratio < 1) ? Math.min(ratio * half, half - 1) : 0;
-            container._scrollSavedY = 0;
-            savedDonorsScrollY = null;
-            savedDonorsScrollRatio = null;
-            let lastTs = null;
-            function tickTv(timestamp) {
-                if (lastTs === null) lastTs = timestamp;
-                const delta = Math.min(50, timestamp - lastTs);
-                lastTs = timestamp;
-                let st = viewport.scrollTop + tvSpeed * delta / 1000;
-                if (st >= half) st -= half;
-                viewport.scrollTop = st;
-                donorsScrollLastTime = timestamp;
-                donorsScrollHandle = requestAnimationFrame(tickTv);
-            }
-            donorsScrollHandle = requestAnimationFrame(tickTv);
-        } else {
-            const ratio = savedDonorsScrollRatio ?? (container._scrollSavedY != null && container._scrollSavedY < 0 ? -container._scrollSavedY / half : null);
-            let currentY = (ratio != null && ratio >= 0 && ratio <= 1) ? -ratio * half : 0;
-            container._scrollSavedY = 0;
-            savedDonorsScrollY = null;
-            savedDonorsScrollRatio = null;
-            container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
-            let lastTs = null;
-            function tick(timestamp) {
-                if (lastTs === null) lastTs = timestamp;
-                let delta = timestamp - lastTs;
-                if (delta > 100) delta = 16;
-                delta = Math.min(33, delta);
-                lastTs = timestamp;
-                currentY -= speed * delta / 1000;
-                if (currentY <= -half) currentY += half;
-                container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
-                donorsScrollLastTime = timestamp;
-                donorsScrollHandle = requestAnimationFrame(tick);
-            }
-            donorsScrollHandle = requestAnimationFrame(tick);
-        }
-    }
-
-    function stopDonorsScroll() {
-        const container = document.getElementById('liveDonorsScroll');
-        const viewport = document.getElementById('liveDonorsScrollViewport');
-        const scrollInner = document.getElementById('liveDonorsScrollInner');
-        const scrollType = liveViewSettings.donorScrollType || 'normal';
-        const useTvScroll = (scrollType === 'tv' || scrollType === 'tv-slow') && viewport;
-        const useTransformAnimation = scrollType === 'transform-animation';
-        const useCssSmooth = scrollType === 'css-smooth';
-        const half = (useTransformAnimation || useCssSmooth) && scrollInner && container
-            ? container.offsetHeight
-            : (container ? container.scrollHeight / 2 : 0);
-        if (half > 0) {
-            if (useTvScroll) {
-                const st = viewport.scrollTop;
-                if (st >= 0 && st < half) {
-                    savedDonorsScrollRatio = st / half;
-                }
-            } else if (useCssSmooth && scrollInner && scrollInner.hasAttribute('data-css-smooth-scroll')) {
-                scrollInner.removeAttribute('data-css-smooth-scroll');
-                scrollInner.style.transform = '';
-            } else if (useTransformAnimation && scrollInner && scrollInner.hasAttribute('data-donors-scroll')) {
-                const anims = scrollInner.getAnimations();
-                const anim = anims.find(function(a) { return a.animationName === 'donorsScrollUp'; });
-                if (anim) {
-                    const dur = anim.effect && anim.effect.getTiming ? anim.effect.getTiming().duration : 0;
-                    const ct = anim.currentTime;
-                    if (typeof dur === 'number' && dur > 0 && typeof ct === 'number' && ct >= 0) {
-                        savedDonorsScrollRatio = (ct % dur) / dur;
-                    }
-                }
-                scrollInner.removeAttribute('data-donors-scroll');
-                scrollInner.style.animationDelay = '';
-            } else if (container && container.style.transform) {
-                const m = container.style.transform.match(/translate3d\(0,\s*(-?[\d.]+)px/);
-                if (m) {
-                    const y = parseFloat(m[1]) || 0;
-                    if (y <= 0 && y >= -half) {
-                        savedDonorsScrollRatio = -y / half;
-                    }
-                }
-            }
-        }
-        if (donorsScrollHandle) {
-            cancelAnimationFrame(donorsScrollHandle);
-            donorsScrollHandle = null;
-        }
-    }
-
-    function startLeadersScroll() {
-        const inner = document.getElementById('leadersScrollInner');
-        const primary = document.getElementById('leadersScrollPrimary');
-        const clone = document.getElementById('leadersScrollClone');
-        const targetsBlock = document.getElementById('leadersTargetsBlock');
-        if (!inner || !primary || !clone || !targetsBlock) return;
-        const scrollMode = liveViewSettings.leadersColumnScroll || 'groups';
-        const content = scrollMode === 'both' ? primary : targetsBlock;
-        if (!content || !content.children.length) return;
-        clone.innerHTML = content.outerHTML;
-        clone.style.display = 'block';
-        const contentHeight = content.offsetHeight;
-        if (!contentHeight || !isFinite(contentHeight) || contentHeight < 80) {
-            leadersScrollIsRunning = false;
-            savedLeadersScrollProgress = null;
-            return;
-        }
-        leadersScrollIsRunning = true;
-        leadersScrollLastTime = performance.now();
-        const onIteration = () => { leadersScrollLastTime = performance.now(); };
-        inner.removeEventListener('animationiteration', onIteration);
-        inner.addEventListener('animationiteration', onIteration);
-        const speed = 30;
-        const durationMs = Math.round((contentHeight / speed) * 1000);
-        inner.style.setProperty('--leaders-scroll-duration', durationMs + 'ms');
-        const progress = savedLeadersScrollProgress;
-        savedLeadersScrollProgress = null;
-        if (progress != null && progress > 0 && progress < 1) {
-            inner.style.animationDelay = '-' + (progress * durationMs) + 'ms';
-        } else {
-            inner.style.animationDelay = '';
-        }
-        inner.removeAttribute('data-leaders-scroll');
-        inner.offsetHeight;
-        inner.setAttribute('data-leaders-scroll', '1');
-    }
-
-    function showUpdateIndicator(label, percent) {
-        const ind = document.getElementById('liveViewUpdateIndicator');
-        const titleEl = document.getElementById('updateIndicatorTitle');
-        const percentEl = document.getElementById('updateIndicatorPercent');
-        const fillEl = document.getElementById('updateIndicatorFill');
-        if (ind) ind.classList.add('show');
-        if (titleEl) titleEl.textContent = label || 'בדיקת סכום';
-        if (percentEl) percentEl.textContent = (percent || 0) + '%';
-        if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, percent || 0)) + '%';
-    }
-    function hideUpdateIndicator() {
-        const ind = document.getElementById('liveViewUpdateIndicator');
-        if (ind) ind.classList.remove('show');
-    }
-    let progressAnimationInterval = null;
-    let isRefreshing = false;
+// מיפוי ערים לקואורדינטות (lat, lng)
+const CITIES_COORDINATES = {
+    // ירושלים והסביבה
+    'ירושלים': { lat: 31.7683, lng: 35.2137 },
+    'ירושלים - מרכז': { lat: 31.7767, lng: 35.2345 },
+    'ירושלים - דרום': { lat: 31.7500, lng: 35.2200 },
+    'ירושלים - צפון': { lat: 31.8000, lng: 35.2300 },
+    'ירושלים - מזרח': { lat: 31.7800, lng: 35.2500 },
+    'ירושלים - מערב': { lat: 31.7700, lng: 35.1900 },
+    'מבשרת ציון': { lat: 31.8025, lng: 35.1522 },
+    'מעלה אדומים': { lat: 31.7781, lng: 35.3011 },
+    'גבעת זאב': { lat: 31.8628, lng: 35.1714 },
+    'ביתר עילית': { lat: 31.6969, lng: 35.1183 },
+    'בית שמש': { lat: 31.7514, lng: 34.9886 },
+    'אבו גוש': { lat: 31.8078, lng: 35.1089 },
+    'מודיעין': { lat: 31.8975, lng: 35.0103 },
+    'מודיעין עילית': { lat: 31.9333, lng: 35.0444 },
     
-    async function refresh() {
-        if (isRefreshing) return; // מניעת רענון כפול
-        isRefreshing = true;
-        
-        const isPeriodicRefresh = hasLoadedOnce;
-        const ESTIMATED_DURATION_MS = 20000;
-        
-        // שמור מצב גלילה לפני עדכון
-        const scrollType = liveViewSettings.donorScrollType || 'normal';
-        const scrollInner = document.getElementById('liveDonorsScrollInner');
-        const viewport = document.getElementById('liveDonorsScrollViewport');
-        let savedScrollState = null;
-        
-        if (isPeriodicRefresh && scrollInner) {
-            // שמור את מצב האנימציה הנוכחי
-            if (scrollType === 'css-smooth' && scrollInner.hasAttribute('data-css-smooth-scroll')) {
-                const anims = scrollInner.getAnimations ? scrollInner.getAnimations() : [];
-                const anim = anims.find(a => a.animationName === 'cssSmoothScroll');
-                if (anim && anim.currentTime != null) {
-                    const dur = anim.effect && anim.effect.getTiming ? anim.effect.getTiming().duration : 0;
-                    if (dur > 0) {
-                        savedScrollState = { type: 'css-smooth', ratio: (anim.currentTime % dur) / dur };
-                    }
-                }
-            } else if (scrollType === 'transform-animation' && scrollInner.hasAttribute('data-donors-scroll')) {
-                const anims = scrollInner.getAnimations ? scrollInner.getAnimations() : [];
-                const anim = anims.find(a => a.animationName === 'donorsScrollUp');
-                if (anim && anim.currentTime != null) {
-                    const dur = anim.effect && anim.effect.getTiming ? anim.effect.getTiming().duration : 0;
-                    if (dur > 0) {
-                        savedScrollState = { type: 'transform', ratio: (anim.currentTime % dur) / dur };
-                    }
-                }
-            } else if ((scrollType === 'tv' || scrollType === 'tv-slow') && viewport) {
-                const container = document.getElementById('liveDonorsScroll');
-                const half = container ? container.scrollHeight / 2 : 0;
-                if (half > 0) {
-                    savedScrollState = { type: 'tv', ratio: viewport.scrollTop / half };
-                }
-            }
+    // תל אביב והמרכז
+    'תל אביב - מרכז העיר': { lat: 32.0853, lng: 34.7818 },
+    'תל אביב - דרום העיר': { lat: 32.0500, lng: 34.7700 },
+    'תל אביב - צפון העיר': { lat: 32.1100, lng: 34.7900 },
+    'תל אביב - יפו': { lat: 32.0500, lng: 34.7500 },
+    'רמת גן': { lat: 32.0700, lng: 34.8243 },
+    'גבעתיים': { lat: 32.0717, lng: 34.8100 },
+    'בני ברק': { lat: 32.0833, lng: 34.8333 },
+    'חולון': { lat: 32.0167, lng: 34.7667 },
+    'בת ים': { lat: 32.0167, lng: 34.7500 },
+    'ראשון לציון': { lat: 31.9500, lng: 34.8000 },
+    'פתח תקווה': { lat: 32.0833, lng: 34.8833 },
+    'הרצליה': { lat: 32.1667, lng: 34.8333 },
+    'רעננה': { lat: 32.1833, lng: 34.8667 },
+    'כפר סבא': { lat: 32.1833, lng: 34.9000 },
+    'נתניה': { lat: 32.3286, lng: 34.8561 },
+    'רחובות': { lat: 31.8928, lng: 34.8113 },
+    'נס ציונה': { lat: 31.9333, lng: 34.8000 },
+    'לוד': { lat: 31.9500, lng: 34.9000 },
+    'רמלה': { lat: 31.9167, lng: 34.8667 },
+    
+    // חיפה והצפון
+    'חיפה': { lat: 32.7940, lng: 34.9896 },
+    'חיפה - מרכז הכרמל': { lat: 32.7800, lng: 34.9800 },
+    'חיפה - קריות': { lat: 32.8300, lng: 35.0700 },
+    'קריית אתא': { lat: 32.8000, lng: 35.1000 },
+    'קריית ביאליק': { lat: 32.8333, lng: 35.0833 },
+    'קריית מוצקין': { lat: 32.8333, lng: 35.0667 },
+    'עכו': { lat: 32.9333, lng: 35.0833 },
+    'נהריה': { lat: 33.0000, lng: 35.0833 },
+    'כרמיאל': { lat: 32.9167, lng: 35.3000 },
+    'עפולה': { lat: 32.6000, lng: 35.2833 },
+    'טבריה': { lat: 32.7897, lng: 35.5317 },
+    'צפת': { lat: 32.9658, lng: 35.4983 },
+    
+    // הדרום
+    'באר שבע': { lat: 31.2589, lng: 34.7997 },
+    'אשדוד': { lat: 31.8000, lng: 34.6500 },
+    'אשקלון': { lat: 31.6658, lng: 34.5664 },
+    'קריית גת': { lat: 31.6100, lng: 34.7700 },
+    'דימונה': { lat: 31.0667, lng: 35.0333 },
+    'אילת': { lat: 29.5577, lng: 34.9519 },
+    'שדרות': { lat: 31.5167, lng: 34.5833 },
+    'אופקים': { lat: 31.3167, lng: 34.6167 },
+    'נתיבות': { lat: 31.4167, lng: 34.5833 },
+    
+    // יהודה ושומרון
+    'אריאל': { lat: 32.1000, lng: 35.1833 },
+    'אפרת': { lat: 31.6500, lng: 35.1500 },
+    'קרני שומרון': { lat: 32.1667, lng: 35.0833 },
+    'אלקנה': { lat: 32.1167, lng: 35.0333 },
+};
+
+// מצא את העיר הקרובה ביותר לקואורדינטות
+function findNearestCity(lat, lng, maxDistanceKm = 15) {
+    let nearestCity = null;
+    let nearestDistance = Infinity;
+    
+    for (const [cityName, coords] of Object.entries(CITIES_COORDINATES)) {
+        const distance = calculateDistance(lat, lng, coords.lat, coords.lng);
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestCity = cityName;
         }
+    }
+    
+    if (nearestDistance <= maxDistanceKm) {
+        return { city: nearestCity, distance: nearestDistance };
+    }
+    return null;
+}
+
+// חישוב מרחק בקילומטרים (Haversine formula)
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // רדיוס כדור הארץ בק"מ
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+function toRad(deg) {
+    return deg * (Math.PI / 180);
+}
+
+// בדוק אם יש התראה לאזור מסוים
+function hasAlertForArea(alertCities, userCity) {
+    if (!Array.isArray(alertCities) || !userCity) return false;
+    
+    const userCityLower = userCity.toLowerCase();
+    const userCityBase = userCity.split(' - ')[0].toLowerCase(); // "ירושלים - מרכז" -> "ירושלים"
+    
+    return alertCities.some(city => {
+        const cityLower = (city || '').toLowerCase();
+        const cityBase = city.split(' - ')[0].toLowerCase();
         
-        try {
-            if (isPeriodicRefresh) {
-                showUpdateIndicator('בדיקת סכום', 0);
-                const startTime = Date.now();
-                progressAnimationInterval = setInterval(() => {
-                    const elapsed = Date.now() - startTime;
-                    const pct = Math.min(95, Math.round((elapsed / ESTIMATED_DURATION_MS) * 100));
-                    showUpdateIndicator('בדיקת סכום', pct);
-                }, 200);
-            }
-            await loadData();
-            if (isPeriodicRefresh) {
-                if (progressAnimationInterval) {
-                    clearInterval(progressAnimationInterval);
-                    progressAnimationInterval = null;
-                }
-                showUpdateIndicator('בדיקת סכום', 100);
-            }
+        return cityLower === userCityLower ||
+               cityLower.includes(userCityLower) ||
+               userCityLower.includes(cityLower) ||
+               cityBase === userCityBase;
+    });
+}
+
+// שמור התראות גולמיות
+let currentAlerts = null;
+let currentAlertsTime = 0;
+
+// הודעה מותאמת אישית
+let customMessage = null;
+let customMessageTime = 0;
+let customMessageDuration = 30000; // ברירת מחדל 30 שניות
+
+function checkAlerts() {
+    pikudHaoref.getActiveAlert(function(err, alert) {
+        apiStatus.lastCheck = new Date().toISOString();
+        
+        if (err) {
+            const errorMsg = err.message || String(err);
+            apiStatus.working = false;
+            apiStatus.lastError = errorMsg;
             
-            // שחזר מצב גלילה
-            if (savedScrollState) {
-                savedDonorsScrollRatio = savedScrollState.ratio;
+            // לא להדפיס שגיאה בכל בדיקה - רק פעם אחת בדקה
+            if (!apiStatus.lastErrorLog || Date.now() - apiStatus.lastErrorLog > 60000) {
+                console.error('❌ שגיאה בבדיקת התראות:', errorMsg);
+                if (errorMsg.includes('403') || errorMsg.includes('Request failed')) {
+                    console.log('⚠️ הערה: ה-API נגיש רק מישראל. יש להגדיר ISRAELI_PROXY או להשתמש ב"התראות טסט".');
+                }
+                apiStatus.lastErrorLog = Date.now();
             }
+            return;
+        }
+        
+        apiStatus.working = true;
+        apiStatus.lastError = null;
+        
+        if (alert && alert.type && alert.cities && alert.cities.length > 0) {
+            currentAlerts = alert;
+            currentAlertsTime = Date.now();
             
-            render();
-            hasLoadedOnce = true;
-            if (isPeriodicRefresh) setTimeout(hideUpdateIndicator, 800);
-            else {
-                const ov = document.getElementById('loadingOverlay');
-                if (ov) ov.classList.add('hidden');
-            }
-        } catch (e) {
-            console.error(e);
-            if (progressAnimationInterval) {
-                clearInterval(progressAnimationInterval);
-                progressAnimationInterval = null;
-            }
-            if (isPeriodicRefresh) hideUpdateIndicator();
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) {
-                overlay.classList.remove('hidden');
-                overlay.innerHTML = '<div class="error-msg">שגיאה בטעינה: ' + (e.message || e) + '<br><br>ודא שכתובת ה-Web App נכונה בהגדרות.</div>';
-            }
+            // שמור בהיסטוריה
+            alertHistory.unshift({
+                time: new Date().toISOString(),
+                cities: alert.cities,
+                type: alert.type
+            });
+            // שמור רק 50 אחרונות
+            if (alertHistory.length > 50) alertHistory.pop();
+            
+            console.log('🚨 התראה התקבלה:', alert.cities.length, 'אזורים:', alert.cities.join(', '));
         }
-        
-        isRefreshing = false;
-    }
+    }, API_OPTIONS);
+}
 
-    function scrollWatchdog() {
-        if (!liveViewSettings.enableAutoScroll) return;
-        const now = performance.now();
-        const container = document.getElementById('liveDonorsScroll');
-        const scrollType = liveViewSettings.donorScrollType || 'normal';
-        const useCssSmooth = scrollType === 'css-smooth';
-        
-        if (container && container.scrollHeight >= 200) {
-            // CSS Smooth לא צריך watchdog - האנימציה רצה לבד
-            if (useCssSmooth) {
-                const scrollInner = document.getElementById('liveDonorsScrollInner');
-                if (scrollInner && !scrollInner.hasAttribute('data-css-smooth-scroll')) {
-                    donorsScrollHandle = null;
-                    startDonorsScroll();
-                }
-            } else if (!donorsScrollHandle) {
-                startDonorsScroll();
-            } else if (now - donorsScrollLastTime > 10000) {
-                donorsScrollHandle = null;
-                startDonorsScroll();
-            }
-        }
-        const targetsBlock = document.getElementById('leadersTargetsBlock');
-        if (targetsBlock && targetsBlock.children.length > 0) {
-            if (!leadersScrollIsRunning) {
-                startLeadersScroll();
-            } else if (now - leadersScrollLastTime > 60000) {
-                leadersScrollIsRunning = false;
-                startLeadersScroll();
-            }
-        }
+// API - בדיקת התראות עם קואורדינטות
+app.get('/api/alert', (req, res) => {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const showAll = req.query.all === '1';
+    const now = Date.now();
+    
+    // אם מבקשים את כל ההתראות
+    if (showAll) {
+        const hasAlerts = currentAlerts && 
+                         (now - currentAlertsTime) < ALERT_DISPLAY_DURATION &&
+                         currentAlerts.cities && currentAlerts.cities.length > 0;
+        return res.json({
+            hasJerusalemAlert: hasAlerts,
+            hasAlert: hasAlerts,
+            allAlerts: hasAlerts ? currentAlerts.cities : [],
+            alert: hasAlerts ? {
+                type: currentAlerts.type,
+                cities: currentAlerts.cities,
+                instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+            } : null,
+            lastCheck: new Date().toISOString(),
+            serverRunning: true
+        });
     }
+    
+    // אם אין קואורדינטות, החזר סטטוס בסיסי
+    if (isNaN(lat) || isNaN(lng)) {
+        return res.json({
+            hasJerusalemAlert: false,
+            hasAlert: false,
+            alert: null,
+            message: 'נדרשות קואורדינטות (lat, lng)',
+            serverRunning: true
+        });
+    }
+    
+    // מצא את העיר הקרובה
+    const nearest = findNearestCity(lat, lng);
+    
+    if (!nearest) {
+        return res.json({
+            hasJerusalemAlert: false,
+            hasAlert: false,
+            alert: null,
+            userLocation: { lat, lng },
+            message: 'לא נמצאה עיר קרובה במאגר',
+            serverRunning: true
+        });
+    }
+    
+    // בדוק אם יש התראה לאזור הזה
+    const alertActive = currentAlerts && 
+                       (now - currentAlertsTime) < ALERT_DISPLAY_DURATION &&
+                       hasAlertForArea(currentAlerts.cities, nearest.city);
+    
+    const relevantAlert = alertActive ? {
+        type: currentAlerts.type,
+        cities: [nearest.city],
+        instructions: currentAlerts.instructions || 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+    } : null;
+    
+    res.json({
+        hasJerusalemAlert: alertActive,
+        hasAlert: alertActive,
+        alert: relevantAlert,
+        userLocation: { lat, lng },
+        nearestCity: nearest.city,
+        distanceKm: Math.round(nearest.distance * 10) / 10,
+        lastCheck: new Date().toISOString(),
+        serverRunning: true
+    });
+});
 
-    function toggleLiveViewFullscreen() {
-        const section = document.getElementById('liveViewSection');
-        const btn = document.getElementById('liveviewFullscreenBtn');
-        const icon = document.getElementById('liveviewFullscreenIcon');
-        if (!section || !btn) return;
-        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-        if (isFs) {
-            (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
-        } else {
-            const el = section;
-            (el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen).call(el);
-        }
+// API - התראת טסט
+app.get('/api/test', (req, res) => {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const testAll = req.query.all === '1';
+    
+    let testCity = 'האזור שלך';
+    if (!isNaN(lat) && !isNaN(lng)) {
+        const nearest = findNearestCity(lat, lng);
+        if (nearest) testCity = nearest.city;
     }
-    function updateFullscreenButtonState() {
-        const btn = document.getElementById('liveviewFullscreenBtn');
-        const icon = document.getElementById('liveviewFullscreenIcon');
-        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-        if (btn) btn.classList.toggle('active', isFs);
-        if (icon) {
-            icon.innerHTML = isFs
-                ? '<path d="M8 3V5M16 3V5M3 8H5M19 8H21M3 16H5M19 16H21M8 21V19M16 21V19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-                : '<path d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-        }
+    
+    // אם מבקשים טסט לכל הערים - הוסף רשימת ערים לדוגמה
+    let testCities;
+    if (testAll) {
+        testCities = [testCity, 'תל אביב - מרכז העיר', 'חיפה', 'באר שבע', 'אשדוד', 'נתניה', 'ראשון לציון'];
+    } else {
+        testCities = [testCity];
     }
-    document.addEventListener('fullscreenchange', updateFullscreenButtonState);
-    document.addEventListener('webkitfullscreenchange', updateFullscreenButtonState);
-    document.addEventListener('mozfullscreenchange', updateFullscreenButtonState);
-
-    function showTopButtons() {
-        document.querySelectorAll('.liveview-top-btn').forEach(btn => btn.classList.remove('buttons-hidden'));
-        if (buttonsHideTimer) clearTimeout(buttonsHideTimer);
-        buttonsHideTimer = setTimeout(() => {
-            document.querySelectorAll('.liveview-top-btn').forEach(btn => btn.classList.add('buttons-hidden'));
-            buttonsHideTimer = null;
-        }, BUTTONS_HIDE_DELAY_MS);
-    }
-    function hideTopButtons() {
-        document.querySelectorAll('.liveview-top-btn').forEach(btn => btn.classList.add('buttons-hidden'));
-        if (buttonsHideTimer) { clearTimeout(buttonsHideTimer); buttonsHideTimer = null; }
-    }
-    function initButtonsAutoHide() {
-        showTopButtons();
-        document.addEventListener('mousemove', showTopButtons);
-        document.addEventListener('mousedown', showTopButtons);
-        document.addEventListener('touchstart', showTopButtons);
-    }
-
-    function openLiveViewSettings() {
-        const overlay = document.getElementById('liveviewSettingsOverlay');
-        if (!overlay) return;
-        populateSettingsForm();
-        bindSettingsInputs();
-        overlay.classList.add('show');
-        document.addEventListener('keydown', onSettingsEscape);
-        updateEmergencyStatusUI('', 'לא נבדק');
-        if (liveViewSettings.emergencyAlertsEnabled) {
-            setTimeout(testEmergencyConnection, 300);
-        }
-    }
-    function closeLiveViewSettings() {
-        const overlay = document.getElementById('liveviewSettingsOverlay');
-        if (overlay) overlay.classList.remove('show');
-        document.removeEventListener('keydown', onSettingsEscape);
-    }
-    function onSettingsEscape(e) {
-        if (e.key === 'Escape') closeLiveViewSettings();
-    }
-    function populateSettingsForm() {
-        const s = liveViewSettings;
-        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
-        const setSpan = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        set('lvBgColor', s.bgColor || '#f5e6d3');
-        set('lvBgColor2', s.bgColor2 || '#fff8dc');
-        set('lvTitleSize', s.titleSize || 32);
-        set('lvDonorNameSize', s.donorNameSize || 18);
-        set('lvAmountSize', s.amountSize || 16);
-        set('lvGroupNameSize', s.groupNameSize || 28);
-        set('lvLeadersWidth', s.leadersWidth || 25);
-        set('lvDonorGapVertical', s.donorGapVertical ?? 10);
-        set('lvDonorGapHorizontal', s.donorGapHorizontal ?? 10);
-        set('lvDonorScrollType', s.donorScrollType || 'normal');
-        set('lvDonorsScrollSpeed', s.donorsScrollSpeed || 50);
-        set('lvDonorsScrollSpeedFast', s.donorsScrollSpeedFast || 0);
-        set('lvGroupsSortBy', s.groupsSortBy || 'name');
-        set('lvGroupsCustomOrder', s.groupsCustomOrder || '');
-        const customRow = document.getElementById('lvGroupsCustomOrderRow');
-        if (customRow) customRow.style.display = (s.groupsSortBy === 'custom') ? 'flex' : 'none';
-        setSpan('lvTitleSizeVal', (s.titleSize || 32) + 'px');
-        setSpan('lvDonorNameSizeVal', (s.donorNameSize || 18) + 'px');
-        setSpan('lvAmountSizeVal', (s.amountSize || 16) + 'px');
-        setSpan('lvGroupNameSizeVal', (s.groupNameSize || 28) + 'px');
-        setSpan('lvLeadersWidthVal', (s.leadersWidth || 25) + '%');
-        setSpan('lvDonorGapVerticalVal', (s.donorGapVertical ?? 10) + 'px');
-        setSpan('lvDonorGapHorizontalVal', (s.donorGapHorizontal ?? 10) + 'px');
-        setSpan('lvDonorsScrollSpeedVal', s.donorsScrollSpeed || 50);
-        const fastV = parseInt(s.donorsScrollSpeedFast, 10) || 0;
-        setSpan('lvDonorsScrollSpeedFastVal', fastV >= 100 ? fastV : 'כבוי');
-        setCheck('lvShowLeaders', !s.hideLeadersColumn);
-        setCheck('lvHideLeaderCards', s.hideLeaderCards);
-        setCheck('lvHideLeadersColumn', s.hideLeadersColumn);
-        setCheck('lvShowTotalBanner', s.showTotalBanner);
-        setCheck('lvEnableAutoScroll', s.enableAutoScroll !== false);
-        setCheck('lvTvModeEnabled', s.tvModeEnabled);
-        set('lvDonorsFilter', s.donorsFilter || 'with-amount');
-        set('lvTotalSummaryLocation', s.totalSummaryLocation || 'donors');
-        set('lvLeadersColumnScroll', s.leadersColumnScroll || 'groups');
-        set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
-        set('lvUpdateType', s.updateType || 'all');
-        setCheck('lvEmergencyAlertsEnabled', s.emergencyAlertsEnabled);
-        set('lvEmergencyAlertsMode', s.emergencyAlertsMode || 'location');
-        set('lvEmergencyAlertsApiUrl', s.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app');
-        set('lvEmergencyCheckInterval', String(s.emergencyCheckIntervalSeconds || 30));
-        set('lvEmergencyDisplayDuration', String(s.emergencyDisplayDurationSeconds || 30));
-    }
-    function bindSettingsInputs() {
-        const groupsSortEl = document.getElementById('lvGroupsSortBy');
-        const customRow = document.getElementById('lvGroupsCustomOrderRow');
-        if (groupsSortEl && customRow) {
-            groupsSortEl.onchange = () => { customRow.style.display = (groupsSortEl.value === 'custom') ? 'flex' : 'none'; };
-        }
-        const range = (id, spanId, suffix) => {
-            const el = document.getElementById(id);
-            const span = document.getElementById(spanId);
-            if (!el || !span) return;
-            el.oninput = () => { span.textContent = el.value + (suffix || ''); };
-        };
-        range('lvTitleSize', 'lvTitleSizeVal', 'px');
-        range('lvDonorNameSize', 'lvDonorNameSizeVal', 'px');
-        range('lvAmountSize', 'lvAmountSizeVal', 'px');
-        range('lvGroupNameSize', 'lvGroupNameSizeVal', 'px');
-        range('lvLeadersWidth', 'lvLeadersWidthVal', '%');
-        range('lvDonorGapVertical', 'lvDonorGapVerticalVal', 'px');
-        range('lvDonorGapHorizontal', 'lvDonorGapHorizontalVal', 'px');
-        range('lvDonorsScrollSpeed', 'lvDonorsScrollSpeedVal', '');
-        const fastEl = document.getElementById('lvDonorsScrollSpeedFast');
-        const fastSpan = document.getElementById('lvDonorsScrollSpeedFastVal');
-        if (fastEl && fastSpan) {
-            fastEl.oninput = () => {
-                const v = parseInt(fastEl.value, 10) || 0;
-                fastSpan.textContent = v >= 100 ? v : 'כבוי';
-            };
-        }
-    }
-    function saveLiveViewSettingsFromPanel() {
-        liveViewSettings = {
-            ...liveViewSettings,
-            bgColor: document.getElementById('lvBgColor')?.value || '#f5e6d3',
-            bgColor2: document.getElementById('lvBgColor2')?.value || '#fff8dc',
-            titleSize: parseInt(document.getElementById('lvTitleSize')?.value) || 32,
-            donorNameSize: parseInt(document.getElementById('lvDonorNameSize')?.value) || 18,
-            amountSize: parseInt(document.getElementById('lvAmountSize')?.value) || 16,
-            groupNameSize: parseInt(document.getElementById('lvGroupNameSize')?.value) || 28,
-            leadersWidth: parseInt(document.getElementById('lvLeadersWidth')?.value) || 25,
-            donorGapVertical: parseInt(document.getElementById('lvDonorGapVertical')?.value) ?? 10,
-            donorGapHorizontal: parseInt(document.getElementById('lvDonorGapHorizontal')?.value) ?? 10,
-            donorScrollType: document.getElementById('lvDonorScrollType')?.value || 'normal',
-            donorsScrollSpeed: parseInt(document.getElementById('lvDonorsScrollSpeed')?.value) || 50,
-            donorsScrollSpeedFast: parseInt(document.getElementById('lvDonorsScrollSpeedFast')?.value) || 0,
-            groupsSortBy: document.getElementById('lvGroupsSortBy')?.value || 'name',
-            groupsCustomOrder: (document.getElementById('lvGroupsCustomOrder')?.value || '').trim(),
-            hideLeadersColumn: !!document.getElementById('lvHideLeadersColumn')?.checked,
-            hideLeaderCards: !!document.getElementById('lvHideLeaderCards')?.checked,
-            showTotalBanner: !!document.getElementById('lvShowTotalBanner')?.checked,
-            enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked,
-            tvModeEnabled: !!document.getElementById('lvTvModeEnabled')?.checked,
-            donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount',
-            totalSummaryLocation: document.getElementById('lvTotalSummaryLocation')?.value || 'donors',
-            leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups',
-            updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
-            updateType: document.getElementById('lvUpdateType')?.value || 'all',
-            emergencyAlertsEnabled: !!document.getElementById('lvEmergencyAlertsEnabled')?.checked,
-            emergencyAlertsMode: document.getElementById('lvEmergencyAlertsMode')?.value || 'location',
-            emergencyAlertsApiUrl: (document.getElementById('lvEmergencyAlertsApiUrl')?.value || '').trim() || 'https://redalert-server-production.up.railway.app',
-            emergencyCheckIntervalSeconds: parseInt(document.getElementById('lvEmergencyCheckInterval')?.value) || 30,
-            emergencyDisplayDurationSeconds: parseInt(document.getElementById('lvEmergencyDisplayDuration')?.value) || 30
-        };
-        try {
-            localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings));
-            localStorage.setItem('tvModeEnabled', liveViewSettings.tvModeEnabled ? '1' : '0');
-        } catch (e) {}
-        if (liveViewSettings.tvModeEnabled) {
-            document.body.classList.add('tv-mode');
-        } else {
-            document.body.classList.remove('tv-mode');
-        }
-        render();
-        startRefreshInterval();
-        startEmergencyAlertsInterval();
-        startCustomMessageInterval();
-        closeLiveViewSettings();
-    }
-
-    function startRefreshInterval() {
-        if (refreshInterval) clearInterval(refreshInterval);
-        const mins = Math.max(1, parseInt(liveViewSettings.updateIntervalMinutes) || 5);
-        refreshInterval = setInterval(refresh, mins * 60 * 1000);
-    }
-
-    function showEmergencyBanner(alert) {
-        const banner = document.getElementById('liveEmergencyBanner');
-        const citiesEl = document.getElementById('emergencyCities');
-        const instructionsEl = document.getElementById('emergencyInstructions');
-        const countdownEl = document.getElementById('emergencyCountdown');
-        if (!banner || !citiesEl || !instructionsEl) return;
-        citiesEl.textContent = (alert.cities || []).join(' • ') || 'ירושלים';
-        instructionsEl.textContent = alert.instructions || 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.';
-        banner.classList.add('active');
-        if (emergencyBannerHideTimer) clearTimeout(emergencyBannerHideTimer);
-        if (emergencyCountdownInterval) clearInterval(emergencyCountdownInterval);
-        const durationSec = liveViewSettings.emergencyDisplayDurationSeconds || 30;
-        const duration = durationSec * 1000;
-        let remaining = durationSec;
-        if (countdownEl) {
-            countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
-            countdownEl.style.display = '';
-            emergencyCountdownInterval = setInterval(() => {
-                remaining--;
-                if (countdownEl) countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
-                if (remaining <= 0 && emergencyCountdownInterval) {
-                    clearInterval(emergencyCountdownInterval);
-                    emergencyCountdownInterval = null;
-                }
-            }, 1000);
-        }
-        emergencyBannerHideTimer = setTimeout(hideEmergencyBanner, duration);
-    }
-    function hideEmergencyBanner() {
-        const banner = document.getElementById('liveEmergencyBanner');
-        const countdownEl = document.getElementById('emergencyCountdown');
-        if (banner) banner.classList.remove('active');
-        if (countdownEl) countdownEl.style.display = 'none';
-        if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
-        if (emergencyCountdownInterval) { clearInterval(emergencyCountdownInterval); emergencyCountdownInterval = null; }
-    }
-    // מיפוי ערים לקואורדינטות (lat, lng) - להתראות מבוססות מיקום
-    const CITIES_COORDINATES = {
-        'ירושלים': { lat: 31.7683, lng: 35.2137 },
-        'ירושלים - מרכז': { lat: 31.7767, lng: 35.2345 },
-        'ירושלים - דרום': { lat: 31.7500, lng: 35.2200 },
-        'ירושלים - צפון': { lat: 31.8000, lng: 35.2300 },
-        'ירושלים - מזרח': { lat: 31.7800, lng: 35.2500 },
-        'ירושלים - מערב': { lat: 31.7700, lng: 35.1900 },
-        'מבשרת ציון': { lat: 31.8025, lng: 35.1522 },
-        'מעלה אדומים': { lat: 31.7781, lng: 35.3011 },
-        'גבעת זאב': { lat: 31.8628, lng: 35.1714 },
-        'ביתר עילית': { lat: 31.6969, lng: 35.1183 },
-        'בית שמש': { lat: 31.7514, lng: 34.9886 },
-        'מודיעין': { lat: 31.8975, lng: 35.0103 },
-        'תל אביב - מרכז העיר': { lat: 32.0853, lng: 34.7818 },
-        'תל אביב - דרום העיר': { lat: 32.0500, lng: 34.7700 },
-        'תל אביב - יפו': { lat: 32.0500, lng: 34.7500 },
-        'רמת גן': { lat: 32.0700, lng: 34.8243 },
-        'גבעתיים': { lat: 32.0717, lng: 34.8100 },
-        'בני ברק': { lat: 32.0833, lng: 34.8333 },
-        'חולון': { lat: 32.0167, lng: 34.7667 },
-        'בת ים': { lat: 32.0167, lng: 34.7500 },
-        'ראשון לציון': { lat: 31.9500, lng: 34.8000 },
-        'פתח תקווה': { lat: 32.0833, lng: 34.8833 },
-        'הרצליה': { lat: 32.1667, lng: 34.8333 },
-        'רעננה': { lat: 32.1833, lng: 34.8667 },
-        'כפר סבא': { lat: 32.1833, lng: 34.9000 },
-        'נתניה': { lat: 32.3286, lng: 34.8561 },
-        'רחובות': { lat: 31.8928, lng: 34.8113 },
-        'לוד': { lat: 31.9500, lng: 34.9000 },
-        'רמלה': { lat: 31.9167, lng: 34.8667 },
-        'חיפה': { lat: 32.7940, lng: 34.9896 },
-        'קריית אתא': { lat: 32.8000, lng: 35.1000 },
-        'עכו': { lat: 32.9333, lng: 35.0833 },
-        'נהריה': { lat: 33.0000, lng: 35.0833 },
-        'כרמיאל': { lat: 32.9167, lng: 35.3000 },
-        'עפולה': { lat: 32.6000, lng: 35.2833 },
-        'טבריה': { lat: 32.7897, lng: 35.5317 },
-        'צפת': { lat: 32.9658, lng: 35.4983 },
-        'באר שבע': { lat: 31.2589, lng: 34.7997 },
-        'אשדוד': { lat: 31.8000, lng: 34.6500 },
-        'אשקלון': { lat: 31.6658, lng: 34.5664 },
-        'קריית גת': { lat: 31.6100, lng: 34.7700 },
-        'שדרות': { lat: 31.5167, lng: 34.5833 },
-        'אופקים': { lat: 31.3167, lng: 34.6167 },
-        'נתיבות': { lat: 31.4167, lng: 34.5833 },
-        'אריאל': { lat: 32.1000, lng: 35.1833 },
-        'אפרת': { lat: 31.6500, lng: 35.1500 },
+    
+    currentAlerts = {
+        type: 'missiles',
+        cities: testCities,
+        instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
     };
+    currentAlertsTime = Date.now();
+    
+    console.log('🧪 התראת טסט הופעלה עבור:', testCities.join(', '));
+    
+    res.json({
+        success: true,
+        message: `התראת טסט הופעלה ל-${ALERT_DISPLAY_DURATION / 1000} שניות`,
+        city: testCity,
+        cities: testCities
+    });
+});
 
-    // חישוב מרחק בקילומטרים (Haversine formula)
-    function calculateDistance(lat1, lng1, lat2, lng2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLng = (lng2 - lng1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLng/2) * Math.sin(dLng/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    // מצא את העיר הקרובה ביותר לקואורדינטות
-    function findNearestCity(lat, lng, maxDistanceKm = 15) {
-        let nearestCity = null;
-        let nearestDistance = Infinity;
-        for (const [cityName, coords] of Object.entries(CITIES_COORDINATES)) {
-            const distance = calculateDistance(lat, lng, coords.lat, coords.lng);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestCity = cityName;
-            }
+// API - סטטוס
+app.get('/api/status', (req, res) => {
+    const now = Date.now();
+    const alertAge = currentAlertsTime ? Math.round((now - currentAlertsTime) / 1000) : null;
+    const alertActive = currentAlerts && (now - currentAlertsTime) < ALERT_DISPLAY_DURATION;
+    
+    res.json({
+        serverRunning: true,
+        port: PORT,
+        citiesInDatabase: Object.keys(CITIES_COORDINATES).length,
+        currentAlerts: alertActive ? currentAlerts.cities : [],
+        alertActive: alertActive,
+        alertAgeSeconds: alertAge,
+        lastAlertTime: currentAlertsTime ? new Date(currentAlertsTime).toISOString() : null,
+        alertDisplayDuration: ALERT_DISPLAY_DURATION / 1000,
+        recentAlerts: alertHistory.slice(0, 10),
+        // מצב API
+        apiStatus: {
+            working: apiStatus.working,
+            proxyConfigured: apiStatus.proxyConfigured,
+            lastError: apiStatus.lastError,
+            lastCheck: apiStatus.lastCheck,
+            note: apiStatus.working === false ? 
+                'ה-API של פיקוד העורף נגיש רק מישראל. השתמש בהתראות טסט או הגדר proxy ישראלי.' : 
+                null
         }
-        if (nearestDistance <= maxDistanceKm) {
-            return { city: nearestCity, distance: nearestDistance };
-        }
-        return null;
-    }
+    });
+});
 
-    // בדוק אם יש התראה לאזור מסוים
-    function hasAlertForArea(alertCities, userCity) {
-        if (!Array.isArray(alertCities) || !userCity) return false;
-        const userCityLower = userCity.toLowerCase();
-        const userCityBase = userCity.split(' - ')[0].toLowerCase();
-        return alertCities.some(city => {
-            const cityLower = (city || '').toLowerCase();
-            const cityBase = city.split(' - ')[0].toLowerCase();
-            return cityLower === userCityLower ||
-                   cityLower.includes(userCityLower) ||
-                   userCityLower.includes(cityLower) ||
-                   cityBase === userCityBase;
+// API - היסטוריית התראות
+app.get('/api/history', (req, res) => {
+    res.json({
+        success: true,
+        count: alertHistory.length,
+        alerts: alertHistory
+    });
+});
+
+// API - בדיקת חיבור לפיקוד העורף (debug)
+app.get('/api/debug', (req, res) => {
+    console.log('🔍 בדיקת debug - מבצע בדיקה ידנית...');
+    console.log('🔧 הגדרות:', { proxyConfigured: !!ISRAELI_PROXY });
+    
+    pikudHaoref.getActiveAlert(function(err, alert) {
+        if (err) {
+            const errorMsg = err.message || String(err);
+            console.error('❌ שגיאת debug:', errorMsg);
+            
+            // בדוק אם זו שגיאת גישה מחו"ל
+            const isGeoBlocked = errorMsg.includes('403') || 
+                                 errorMsg.includes('Request failed') ||
+                                 errorMsg.includes('ECONNREFUSED');
+            
+            return res.json({
+                success: false,
+                error: errorMsg,
+                isGeoBlocked: isGeoBlocked,
+                proxyConfigured: !!ISRAELI_PROXY,
+                solution: isGeoBlocked ? 
+                    'ה-API נגיש רק מישראל. פתרונות: 1) הגדר ISRAELI_PROXY=http://proxy.co.il:8080 ב-Railway. 2) השתמש בהתראות טסט לבדיקה. 3) הרץ את השרת על מחשב בישראל.' : 
+                    null,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        console.log('📋 תשובה מפיקוד העורף:', JSON.stringify(alert));
+        
+        // אם יש התראה, עדכן את ה-state
+        if (alert && alert.type && alert.cities && alert.cities.length > 0) {
+            currentAlerts = alert;
+            currentAlertsTime = Date.now();
+            alertHistory.unshift({
+                time: new Date().toISOString(),
+                cities: alert.cities,
+                type: alert.type,
+                source: 'debug'
+            });
+            if (alertHistory.length > 50) alertHistory.pop();
+        }
+        
+        res.json({
+            success: true,
+            hasActiveAlert: !!(alert && alert.cities && alert.cities.length > 0),
+            rawResponse: alert,
+            proxyConfigured: !!ISRAELI_PROXY,
+            currentServerState: {
+                currentAlerts: currentAlerts,
+                alertAge: currentAlertsTime ? Math.round((Date.now() - currentAlertsTime) / 1000) : null
+            },
+            timestamp: new Date().toISOString()
         });
+    }, API_OPTIONS);
+});
+
+// API - שליחת הודעה מותאמת אישית
+app.post('/api/message', (req, res) => {
+    const { title, content, duration } = req.body;
+    
+    if (!title && !content) {
+        return res.json({ success: false, error: 'נדרשת כותרת או תוכן' });
     }
+    
+    customMessage = {
+        title: title || '',
+        content: content || '',
+        timestamp: Date.now()
+    };
+    customMessageTime = Date.now();
+    const durationVal = parseInt(duration);
+    // 0 = ללא הגבלה (שנה אחת), אחרת מינימום 5 שניות
+    customMessageDuration = durationVal === 0 ? 365 * 24 * 60 * 60 * 1000 : Math.max(5000, durationVal * 1000);
+    
+    console.log('📢 הודעה מותאמת נשלחה:', title || content);
+    
+    const durationText = durationVal === 0 ? 'ללא הגבלה' : (customMessageDuration / 1000) + ' שניות';
+    res.json({
+        success: true,
+        message: 'ההודעה נשלחה בהצלחה',
+        duration: durationVal === 0 ? 'unlimited' : customMessageDuration / 1000,
+        durationText: durationText
+    });
+});
 
-    let detectedNearestCity = null;
+// API - בדיקת הודעה מותאמת
+app.get('/api/message', (req, res) => {
+    const now = Date.now();
+    const isActive = customMessage && (now - customMessageTime) < customMessageDuration;
+    
+    res.json({
+        hasMessage: isActive,
+        message: isActive ? customMessage : null,
+        remainingSeconds: isActive ? Math.ceil((customMessageDuration - (now - customMessageTime)) / 1000) : 0,
+        serverRunning: true
+    });
+});
 
-    function getUserLocation() {
-        if (!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-            pos => {
-                userLocation.lat = pos.coords.latitude;
-                userLocation.lng = pos.coords.longitude;
-                const nearest = findNearestCity(userLocation.lat, userLocation.lng);
-                if (nearest) {
-                    detectedNearestCity = nearest.city;
-                    console.log('📍 מיקום זוהה:', nearest.city, '(' + nearest.distance.toFixed(1) + ' ק"מ)');
-                } else {
-                    console.log('📍 מיקום זוהה:', userLocation.lat, userLocation.lng);
+// API - ביטול הודעה
+app.delete('/api/message', (req, res) => {
+    customMessage = null;
+    customMessageTime = 0;
+    console.log('🗑️ הודעה בוטלה');
+    res.json({ success: true, message: 'ההודעה בוטלה' });
+});
+
+// דף בית
+app.get('/', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="he" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <title>שרת התראות לפי מיקום</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+                .container { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+                h1, h2 { color: #333; margin-bottom: 20px; }
+                h2 { font-size: 20px; border-bottom: 2px solid #D4AF37; padding-bottom: 10px; }
+                .status { padding: 15px; border-radius: 8px; margin: 15px 0; }
+                .status.ok { background: #d4edda; color: #155724; }
+                .status.info { background: #cce5ff; color: #004085; }
+                .status.alert { background: #f8d7da; color: #721c24; }
+                .status.warning { background: #fff3cd; color: #856404; }
+                .btn { display: inline-block; padding: 12px 24px; background: #dc2626; color: white; text-decoration: none; border-radius: 8px; margin: 10px 5px 10px 0; border: none; cursor: pointer; font-size: 16px; }
+                .btn:hover { background: #b91c1c; }
+                .btn.secondary { background: #6b7280; }
+                .btn.secondary:hover { background: #4b5563; }
+                .btn.green { background: #16a34a; }
+                .btn.green:hover { background: #15803d; }
+                .btn.gold { background: #D4AF37; }
+                .btn.gold:hover { background: #B8941F; }
+                .btn.blue { background: #2563eb; }
+                .btn.blue:hover { background: #1d4ed8; }
+                #result { margin-top: 20px; }
+                #location { font-size: 14px; color: #666; margin: 10px 0; }
+                .form-group { margin-bottom: 15px; }
+                .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #333; }
+                .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+                .form-group textarea { min-height: 80px; resize: vertical; }
+                .form-row { display: flex; gap: 15px; }
+                .form-row .form-group { flex: 1; }
+                #messageStatus { margin-top: 15px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚨 שרת התראות לפי מיקום</h1>
+                <div class="status ok">✅ השרת פועל על פורט ${PORT}</div>
+                ${ISRAELI_PROXY ? 
+                    '<div class="status ok">🔌 פרוקסי ישראלי מוגדר</div>' : 
+                    '<div class="status warning">⚠️ <strong>ללא פרוקסי ישראלי</strong> - ה-API של פיקוד העורף נגיש רק מישראל.<br>השתמש ב"התראות טסט" או הגדר ISRAELI_PROXY ב-Railway.</div>'
                 }
-            },
-            err => {
-                console.log('⚠️ לא ניתן לזהות מיקום:', err.message);
-            },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
-        );
-    }
-
-    // רשימת פרוקסי CORS - ננסה כמה אם אחד נכשל
-    const CORS_PROXIES = [
-        { url: 'https://api.allorigins.win/get?url=', jsonWrap: true },
-        { url: 'https://api.cors.lol/?url=', jsonWrap: false },
-        { url: 'https://corsproxy.io/?url=', jsonWrap: false },
-        { url: 'https://thingproxy.freeboard.io/fetch/', jsonWrap: false, noEncode: true }
-    ];
-    let currentProxyIndex = 0;
-    const OREF_API_URL = 'https://www.oref.org.il/WarningMessages/alert/alerts.json';
-
-    async function fetchOrefAlerts() {
-        for (let i = 0; i < CORS_PROXIES.length; i++) {
-            const proxyIndex = (currentProxyIndex + i) % CORS_PROXIES.length;
-            const proxyConfig = CORS_PROXIES[proxyIndex];
-            try {
-                const fetchUrl = proxyConfig.noEncode 
-                    ? proxyConfig.url + OREF_API_URL
-                    : proxyConfig.url + encodeURIComponent(OREF_API_URL);
                 
-                console.log('Trying proxy:', proxyConfig.url);
+                <div id="location">📍 מיקום: טוען...</div>
                 
-                const response = await fetch(fetchUrl, {
-                    credentials: 'omit',
-                    cache: 'no-store',
-                    mode: 'cors'
-                });
+                <div>
+                    <button class="btn green" onclick="getLocation()">📍 זהה מיקום</button>
+                    <button class="btn" onclick="testAlert()">🧪 התראת טסט</button>
+                    <button class="btn" onclick="testAlertAll()" style="background:#9333ea;">🧪 טסט כל הערים</button>
+                    <button class="btn secondary" onclick="checkAlert()">🔍 בדוק התראות</button>
+                    <button class="btn secondary" onclick="checkStatus()">📊 סטטוס שרת</button>
+                    <button class="btn blue" onclick="debugCheck()">🔧 Debug פיקוד העורף</button>
+                </div>
                 
-                if (!response.ok) {
-                    console.log('Proxy response not ok:', response.status);
-                    continue;
-                }
+                <div id="result"></div>
+            </div>
+            
+            <div class="container">
+                <h2>📢 שליחת הודעה מותאמת אישית</h2>
+                <p style="color: #666; margin-bottom: 20px;">ההודעה תוצג בתצוגת הלייב על כל המסכים המחוברים</p>
                 
-                let text = await response.text();
-                console.log('Proxy response:', text.substring(0, 100));
+                <div class="form-group">
+                    <label>כותרת ההודעה:</label>
+                    <input type="text" id="msgTitle" placeholder="לדוגמה: הודעה חשובה!">
+                </div>
                 
-                // אם זה פרוקסי שעוטף ב-JSON
-                if (proxyConfig.jsonWrap && text) {
-                    try {
-                        const wrapped = JSON.parse(text);
-                        text = wrapped.contents || '';
-                    } catch (e) {}
-                }
+                <div class="form-group">
+                    <label>תוכן ההודעה:</label>
+                    <textarea id="msgContent" placeholder="כתוב כאן את תוכן ההודעה..."></textarea>
+                </div>
                 
-                if (!text || text.trim() === '' || text.trim() === '{}' || text.trim() === '[]') {
-                    currentProxyIndex = proxyIndex;
-                    console.log('No active alerts');
-                    return { data: [], success: true }; // אין התראות
-                }
-                const data = JSON.parse(text);
-                currentProxyIndex = proxyIndex;
-                console.log('Alerts found:', data);
-                return { data: data, success: true };
-            } catch (e) {
-                console.log('Proxy failed:', proxyConfig.url, e.message);
-                continue;
-            }
-        }
-        console.log('All proxies failed');
-        return { data: null, success: false };
-    }
-
-    function checkEmergencyAlert() {
-        if (!liveViewSettings.emergencyAlertsEnabled) return;
-        const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
-        const mode = liveViewSettings.emergencyAlertsMode || 'location';
-        let url = base + '/api/alert';
-        
-        // אם מצב "רק באזור שלי" - שלח קואורדינטות
-        if (mode === 'location' && userLocation.lat && userLocation.lng) {
-            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
-        }
-        // אם מצב "כל ההתראות" - בקש את כל ההתראות
-        if (mode === 'all') {
-            url += '?all=1';
-        }
-        
-        fetch(url, { credentials: 'omit' }).then(r => r.json()).then(data => {
-            if (mode === 'all' && data.allAlerts && data.allAlerts.length > 0) {
-                showEmergencyBanner({
-                    cities: data.allAlerts,
-                    instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
-                });
-            } else if (data.hasJerusalemAlert && data.alert) {
-                showEmergencyBanner(data.alert);
-            } else {
-                hideEmergencyBanner();
-            }
-        }).catch(() => {});
-    }
-    function startEmergencyAlertsInterval() {
-        if (emergencyAlertsInterval) clearInterval(emergencyAlertsInterval);
-        emergencyAlertsInterval = null;
-        if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
-        if (emergencyCountdownInterval) { clearInterval(emergencyCountdownInterval); emergencyCountdownInterval = null; }
-        hideEmergencyBanner();
-        if (!liveViewSettings.emergencyAlertsEnabled) return;
-        const sec = Math.max(15, parseInt(liveViewSettings.emergencyCheckIntervalSeconds) || 30);
-        checkEmergencyAlert();
-        emergencyAlertsInterval = setInterval(checkEmergencyAlert, sec * 1000);
-    }
-
-    // הודעות מותאמות אישית
-    function showCustomMessageBanner(message) {
-        const banner = document.getElementById('liveCustomMessageBanner');
-        const titleEl = document.getElementById('customMessageTitle');
-        const contentEl = document.getElementById('customMessageContent');
-        const countdownEl = document.getElementById('customMessageCountdown');
-        if (!banner) return;
-        
-        if (titleEl) titleEl.textContent = message.title || '';
-        if (contentEl) contentEl.textContent = message.content || '';
-        banner.classList.add('active');
-        
-        if (customMessageHideTimer) clearTimeout(customMessageHideTimer);
-        if (customMessageCountdownInterval) clearInterval(customMessageCountdownInterval);
-        
-        let remaining = message.remainingSeconds || 30;
-        const isUnlimited = remaining > 86400; // יותר מיום = ללא הגבלה
-        
-        if (countdownEl) {
-            if (isUnlimited) {
-                countdownEl.textContent = '';
-            } else {
-                countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
-                customMessageCountdownInterval = setInterval(() => {
-                    remaining--;
-                    if (countdownEl) countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
-                    if (remaining <= 0) {
-                        clearInterval(customMessageCountdownInterval);
-                        customMessageCountdownInterval = null;
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>משך הצגה:</label>
+                        <select id="msgDuration">
+                            <option value="10">10 שניות</option>
+                            <option value="30" selected>30 שניות</option>
+                            <option value="60">דקה</option>
+                            <option value="120">2 דקות</option>
+                            <option value="300">5 דקות</option>
+                            <option value="600">10 דקות</option>
+                            <option value="900">15 דקות</option>
+                            <option value="1800">30 דקות</option>
+                            <option value="3600">שעה</option>
+                            <option value="7200">שעתיים</option>
+                            <option value="0">ללא הגבלה (עד ביטול ידני)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <button class="btn gold" onclick="sendMessage()">📤 שלח הודעה</button>
+                    <button class="btn secondary" onclick="cancelMessage()">🗑️ בטל הודעה</button>
+                    <button class="btn blue" onclick="checkMessage()">🔍 בדוק סטטוס</button>
+                </div>
+                
+                <div id="messageStatus"></div>
+            </div>
+            
+            <script>
+                let userLat = null, userLng = null;
+                
+                function getLocation() {
+                    if (!navigator.geolocation) {
+                        document.getElementById('location').innerHTML = '❌ הדפדפן לא תומך במיקום';
+                        return;
                     }
-                }, 1000);
-            }
-        }
-        
-        if (!isUnlimited) {
-            customMessageHideTimer = setTimeout(hideCustomMessageBanner, remaining * 1000);
-        }
-    }
-    
-    function hideCustomMessageBanner() {
-        const banner = document.getElementById('liveCustomMessageBanner');
-        if (banner) banner.classList.remove('active');
-        if (customMessageHideTimer) { clearTimeout(customMessageHideTimer); customMessageHideTimer = null; }
-        if (customMessageCountdownInterval) { clearInterval(customMessageCountdownInterval); customMessageCountdownInterval = null; }
-    }
-    
-    function checkCustomMessage() {
-        const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
-        
-        fetch(base + '/api/message', { credentials: 'omit' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.hasMessage && data.message) {
-                    showCustomMessageBanner({
-                        title: data.message.title,
-                        content: data.message.content,
-                        remainingSeconds: data.remainingSeconds
-                    });
-                } else {
-                    hideCustomMessageBanner();
+                    document.getElementById('location').innerHTML = '📍 מזהה מיקום...';
+                    navigator.geolocation.getCurrentPosition(
+                        pos => {
+                            userLat = pos.coords.latitude;
+                            userLng = pos.coords.longitude;
+                            document.getElementById('location').innerHTML = '📍 מיקום: ' + userLat.toFixed(4) + ', ' + userLng.toFixed(4);
+                            checkAlert();
+                        },
+                        err => {
+                            document.getElementById('location').innerHTML = '❌ שגיאה בזיהוי מיקום: ' + err.message;
+                        }
+                    );
                 }
-            })
-            .catch(() => {});
-    }
-    
-    function startCustomMessageInterval() {
-        if (customMessageInterval) clearInterval(customMessageInterval);
-        customMessageInterval = null;
-        hideCustomMessageBanner();
-        checkCustomMessage();
-        customMessageInterval = setInterval(checkCustomMessage, 5000); // בדוק כל 5 שניות
-    }
-
-    async function init() {
-        loadSettings();
-        try {
-            if (liveViewSettings.tvModeEnabled) document.body.classList.add('tv-mode');
-            else document.body.classList.remove('tv-mode');
-        } catch (e) {}
-        
-        // זהה מיקום המשתמש להתראות מבוססות מיקום
-        getUserLocation();
-        
-        const overlay = document.getElementById('loadingOverlay');
-        try {
-            await refresh();
-            if (overlay) overlay.classList.add('hidden');
-            startRefreshInterval();
-            startEmergencyAlertsInterval();
-            startCustomMessageInterval();
-            setInterval(scrollWatchdog, 2000);
-            initButtonsAutoHide();
-        } catch (e) {
-            if (overlay) overlay.innerHTML = '<div class="error-msg">' + (e.message || e) + '</div>';
-        }
-    }
-
-    function updateEmergencyStatusUI(status, text) {
-        const dot = document.getElementById('emergencyStatusDot');
-        const textEl = document.getElementById('emergencyStatusText');
-        const btn = document.getElementById('emergencyTestBtn');
-        if (dot) {
-            dot.className = 'emergency-status-dot';
-            if (status === 'checking') dot.classList.add('checking');
-            else if (status === 'connected') dot.classList.add('connected');
-            else if (status === 'error') dot.classList.add('error');
-        }
-        if (textEl) textEl.textContent = text || '';
-        if (btn) btn.disabled = (status === 'checking');
-    }
-
-    function testEmergencyConnection() {
-        const urlInput = document.getElementById('lvEmergencyAlertsApiUrl');
-        const base = (urlInput ? urlInput.value : liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
-        let url = base + '/api/alert';
-        
-        if (userLocation.lat && userLocation.lng) {
-            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
-        }
-        
-        updateEmergencyStatusUI('checking', 'בודק חיבור...');
-        fetch(url, { credentials: 'omit' })
-            .then(r => {
-                if (!r.ok) throw new Error('שגיאת שרת: ' + r.status);
-                return r.json();
-            })
-            .then(data => {
-                if (data.serverRunning) {
-                    let statusMsg = 'מחובר לשרת ✓';
+                
+                async function checkAlert() {
+                    if (!userLat || !userLng) {
+                        document.getElementById('result').innerHTML = '<div class="status info">📍 יש לזהות מיקום קודם</div>';
+                        return;
+                    }
+                    const res = await fetch('/api/alert?lat=' + userLat + '&lng=' + userLng);
+                    const data = await res.json();
+                    let html = '<pre style="background:#f3f4f6;padding:15px;border-radius:8px;font-size:13px;">' + JSON.stringify(data, null, 2) + '</pre>';
                     if (data.nearestCity) {
-                        statusMsg += ' | ' + data.nearestCity;
+                        html = '<div class="status info">🏙️ העיר הקרובה: <strong>' + data.nearestCity + '</strong> (' + data.distanceKm + ' ק"מ)</div>' + html;
                     }
-                    updateEmergencyStatusUI('connected', statusMsg);
-                } else {
-                    updateEmergencyStatusUI('connected', 'מחובר (פורמט לא צפוי)');
+                    if (data.hasAlert) {
+                        html = '<div class="status alert">🚨 יש התראה באזור שלך!</div>' + html;
+                    }
+                    document.getElementById('result').innerHTML = html;
                 }
-            })
-            .catch(err => {
-                updateEmergencyStatusUI('error', 'שגיאה: ' + (err.message || 'לא ניתן להתחבר'));
-            });
-    }
-
-    function testEmergencyAlert() {
-        const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
-        let url = base + '/api/test';
-        if (userLocation.lat && userLocation.lng) {
-            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
-        }
-        
-        fetch(url, { credentials: 'omit' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.city) {
-                    showEmergencyBanner({
-                        cities: [data.city],
-                        instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+                
+                async function testAlert() {
+                    if (!userLat || !userLng) {
+                        document.getElementById('result').innerHTML = '<div class="status info">📍 יש לזהות מיקום קודם</div>';
+                        return;
+                    }
+                    const res = await fetch('/api/test?lat=' + userLat + '&lng=' + userLng);
+                    const data = await res.json();
+                    document.getElementById('result').innerHTML = '<div class="status alert">🧪 ' + data.message + '<br>עיר: ' + data.city + '</div>';
+                }
+                
+                async function testAlertAll() {
+                    if (!userLat || !userLng) {
+                        document.getElementById('result').innerHTML = '<div class="status info">📍 יש לזהות מיקום קודם</div>';
+                        return;
+                    }
+                    const res = await fetch('/api/test?lat=' + userLat + '&lng=' + userLng + '&all=1');
+                    const data = await res.json();
+                    document.getElementById('result').innerHTML = '<div class="status alert">🧪 ' + data.message + '<br>ערים: ' + (data.cities || []).join(', ') + '</div>';
+                }
+                
+                async function checkStatus() {
+                    const res = await fetch('/api/status');
+                    const data = await res.json();
+                    let html = '<div class="status info"><strong>📊 סטטוס השרת:</strong><br>';
+                    html += '• התראות פעילות: ' + (data.alertActive ? '✅ כן' : '❌ לא') + '<br>';
+                    if (data.currentAlerts && data.currentAlerts.length > 0) {
+                        html += '• ערים בהתראה: ' + data.currentAlerts.join(', ') + '<br>';
+                        html += '• גיל ההתראה: ' + data.alertAgeSeconds + ' שניות<br>';
+                    }
+                    html += '• התראות אחרונות בהיסטוריה: ' + (data.recentAlerts ? data.recentAlerts.length : 0) + '</div>';
+                    if (data.recentAlerts && data.recentAlerts.length > 0) {
+                        html += '<div class="status warning"><strong>היסטוריית התראות:</strong><br>';
+                        data.recentAlerts.forEach(a => {
+                            html += '• ' + a.time + ': ' + a.cities.join(', ') + '<br>';
+                        });
+                        html += '</div>';
+                    }
+                    document.getElementById('result').innerHTML = html;
+                }
+                
+                async function debugCheck() {
+                    document.getElementById('result').innerHTML = '<div class="status info">🔧 בודק חיבור לפיקוד העורף...</div>';
+                    const res = await fetch('/api/debug');
+                    const data = await res.json();
+                    let html = '<div class="status ' + (data.hasActiveAlert ? 'alert' : 'info') + '">';
+                    html += '<strong>🔧 תוצאת בדיקה:</strong><br>';
+                    html += '• הצלחה: ' + (data.success ? '✅' : '❌') + '<br>';
+                    html += '• יש התראה פעילה: ' + (data.hasActiveAlert ? '🚨 כן!' : 'לא') + '<br>';
+                    html += '• זמן: ' + data.timestamp + '</div>';
+                    html += '<pre style="background:#f3f4f6;padding:15px;border-radius:8px;font-size:12px;direction:ltr;text-align:left;overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
+                    document.getElementById('result').innerHTML = html;
+                }
+                
+                async function sendMessage() {
+                    const title = document.getElementById('msgTitle').value.trim();
+                    const content = document.getElementById('msgContent').value.trim();
+                    const duration = document.getElementById('msgDuration').value;
+                    
+                    if (!title && !content) {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status warning">⚠️ נא למלא כותרת או תוכן</div>';
+                        return;
+                    }
+                    
+                    const res = await fetch('/api/message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title, content, duration })
                     });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status ok">✅ ' + data.message + ' (' + data.durationText + ')</div>';
+                    } else {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status alert">❌ ' + data.error + '</div>';
+                    }
                 }
-            })
-            .catch(() => {
-                showEmergencyBanner({
-                    cities: ['האזור שלך'],
-                    instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
-                });
-            });
-    }
+                
+                async function cancelMessage() {
+                    const res = await fetch('/api/message', { method: 'DELETE' });
+                    const data = await res.json();
+                    document.getElementById('messageStatus').innerHTML = '<div class="status info">🗑️ ' + data.message + '</div>';
+                }
+                
+                async function checkMessage() {
+                    const res = await fetch('/api/message');
+                    const data = await res.json();
+                    
+                    if (data.hasMessage) {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status warning">📢 יש הודעה פעילה!<br><strong>' + (data.message.title || '') + '</strong><br>' + (data.message.content || '') + '<br>נותרו: ' + data.remainingSeconds + ' שניות</div>';
+                    } else {
+                        document.getElementById('messageStatus').innerHTML = '<div class="status info">אין הודעה פעילה כרגע</div>';
+                    }
+                }
+                
+                getLocation();
+            </script>
+        </body>
+        </html>
+    `);
+});
 
-    // פונקציה לרענון ידני - ניתן להפעיל מהקונסול
-    async function forceRefresh() {
-        console.log('🔄 מתחיל רענון ידני...');
-        try {
-            await loadData();
-            render();
-            console.log('✅ רענון הושלם בהצלחה!');
-            console.log('📊 סכום כולל:', totalDonated);
-            console.log('🎯 יעד:', goal);
-            console.log('👥 מספר מתרימים:', donors.length);
-        } catch (e) {
-            console.error('❌ שגיאה ברענון:', e);
-        }
-    }
+// בדוק התראות כל 3 שניות
+setInterval(checkAlerts, 3000);
 
-    window.toggleLiveViewFullscreen = toggleLiveViewFullscreen;
-    window.openLiveViewSettings = openLiveViewSettings;
-    window.closeLiveViewSettings = closeLiveViewSettings;
-    window.saveLiveViewSettingsFromPanel = saveLiveViewSettingsFromPanel;
-    window.testEmergencyConnection = testEmergencyConnection;
-    window.testEmergencyAlert = testEmergencyAlert;
-    window.forceRefresh = forceRefresh;
+app.listen(PORT, () => {
+    console.log(`
+🚨 שרת התראות לפי מיקום פועל!
+📍 כתובת: http://localhost:${PORT}
+📡 בודק התראות כל 3 שניות
+🗺️  ${Object.keys(CITIES_COORDINATES).length} ערים במאגר
+⏱️  משך הצגת התראה: ${ALERT_DISPLAY_DURATION / 1000} שניות
+🔌 פרוקסי ישראלי: ${ISRAELI_PROXY ? '✅ מוגדר' : '❌ לא מוגדר'}
 
-    init();
-})();
-    </script>
-</body>
-</html>
+${!ISRAELI_PROXY ? `⚠️  הערה: ה-API של פיקוד העורף נגיש רק מישראל.
+    להגדרת פרוקסי: הוסף ISRAELI_PROXY=http://user:pass@proxy.co.il:8080 ב-Railway
+    או השתמש ב-"התראות טסט" לבדיקה.
+` : ''}
+נקודות קצה:
+  GET /api/alert?lat=XX&lng=YY      - בדיקת התראות לפי מיקום
+  GET /api/alert?all=1              - כל ההתראות בארץ
+  GET /api/test?lat=XX&lng=YY       - התראת טסט
+  GET /api/test?lat=XX&lng=YY&all=1 - התראת טסט לכל הערים
+  GET /api/status                   - סטטוס השרת והתראות נוכחיות
+  GET /api/history                  - היסטוריית התראות
+  GET /api/debug                    - בדיקת חיבור ל-API
+    `);
+    
+    checkAlerts();
+});
