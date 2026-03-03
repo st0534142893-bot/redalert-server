@@ -410,20 +410,19 @@
         }
         .live-emergency-banner { position: relative; }
         .live-emergency-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-        .live-emergency-banner .banner-note-img {
+        .live-emergency-banner .banner-note-svg {
             position: absolute;
             bottom: -6px;
             left: 20px;
             width: 70px;
             height: auto;
-            max-height: 65px;
-            object-fit: contain;
             z-index: 1;
             pointer-events: none;
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
             transform-origin: top center;
             animation: noteSwing 2.5s ease-in-out infinite;
         }
+        .live-emergency-banner .banner-note-svg svg { width: 100%; height: auto; display: block; }
         @keyframes noteSwing {
             0%, 100% { transform: rotate(-8deg); }
             50% { transform: rotate(8deg); }
@@ -461,20 +460,19 @@
         }
         .live-custom-message-banner { position: relative; }
         .live-custom-message-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-        .live-custom-message-banner .banner-note-img {
+        .live-custom-message-banner .banner-note-svg {
             position: absolute;
             bottom: -6px;
             left: 20px;
             width: 70px;
             height: auto;
-            max-height: 65px;
-            object-fit: contain;
             z-index: 1;
             pointer-events: none;
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
             transform-origin: top center;
             animation: noteSwing 2.5s ease-in-out infinite;
         }
+        .live-custom-message-banner .banner-note-svg svg { width: 100%; height: auto; display: block; }
         .live-custom-message-banner .custom-message-title { font-size: 32px; font-weight: 800; }
         .live-custom-message-banner .custom-message-content { font-size: 22px; opacity: 0.95; max-width: 80%; line-height: 1.5; }
         .live-custom-message-banner .custom-message-countdown {
@@ -721,14 +719,30 @@
             <span id="liveTotalBannerPercent" style="display:none;"></span>
         </div>
         <div class="live-emergency-banner" id="liveEmergencyBanner">
-            <img class="banner-note-img" src="talui-note.png" alt="תלוי על חוט" onerror="this.onerror=null; this.src='https://drive.google.com/uc?export=view&id=1ggcLKRSusjvnuJ0fOp-B4dGmkgA3NSa9';">
+            <div class="banner-note-svg" aria-label="תלוי על חוט">
+                <svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg">
+                    <defs><linearGradient id="noteGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#22c55e"/><stop offset="100%" style="stop-color:#15803d"/></linearGradient></defs>
+                    <rect x="4" y="0" width="100" height="75" rx="4" fill="url(#noteGrad)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+                    <circle cx="95" cy="12" r="4" fill="rgba(255,255,255,0.9)"/>
+                    <text x="54" y="38" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="David, Arial Hebrew, sans-serif">תלוי</text>
+                    <text x="54" y="58" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="David, Arial Hebrew, sans-serif">על חוט</text>
+                </svg>
+            </div>
             <span class="emergency-title">⚠️ פיקוד הגורף</span>
             <span class="emergency-cities" id="emergencyCities"></span>
             <span class="emergency-instructions" id="emergencyInstructions"></span>
             <span class="emergency-countdown" id="emergencyCountdown"></span>
         </div>
         <div class="live-custom-message-banner" id="liveCustomMessageBanner">
-            <img class="banner-note-img" src="talui-note.png" alt="תלוי על חוט" onerror="this.onerror=null; this.src='https://drive.google.com/uc?export=view&id=1ggcLKRSusjvnuJ0fOp-B4dGmkgA3NSa9';">
+            <div class="banner-note-svg" aria-label="תלוי על חוט">
+                <svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg">
+                    <defs><linearGradient id="noteGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#22c55e"/><stop offset="100%" style="stop-color:#15803d"/></linearGradient></defs>
+                    <rect x="4" y="0" width="100" height="75" rx="4" fill="url(#noteGrad2)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+                    <circle cx="95" cy="12" r="4" fill="rgba(255,255,255,0.9)"/>
+                    <text x="54" y="38" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="David, Arial Hebrew, sans-serif">תלוי</text>
+                    <text x="54" y="58" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="David, Arial Hebrew, sans-serif">על חוט</text>
+                </svg>
+            </div>
             <span class="custom-message-title" id="customMessageTitle"></span>
             <span class="custom-message-content" id="customMessageContent"></span>
             <span class="custom-message-countdown" id="customMessageCountdown"></span>
