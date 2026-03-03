@@ -412,16 +412,21 @@
         .live-emergency-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
         .live-emergency-banner .banner-note-img {
             position: absolute;
-            top: -8px;
-            left: 50%;
-            transform: translateX(-50%) rotate(-3deg);
-            width: 80px;
+            bottom: -6px;
+            left: 20px;
+            width: 70px;
             height: auto;
-            max-height: 70px;
+            max-height: 65px;
             object-fit: contain;
             z-index: 1;
             pointer-events: none;
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+            transform-origin: top center;
+            animation: noteSwing 2.5s ease-in-out infinite;
+        }
+        @keyframes noteSwing {
+            0%, 100% { transform: rotate(-8deg); }
+            50% { transform: rotate(8deg); }
         }
         .live-emergency-banner .emergency-title { font-size: 26px; }
         .live-emergency-banner .emergency-cities { font-size: 18px; opacity: 0.95; }
@@ -458,16 +463,17 @@
         .live-custom-message-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
         .live-custom-message-banner .banner-note-img {
             position: absolute;
-            top: -8px;
-            left: 50%;
-            transform: translateX(-50%) rotate(-3deg);
-            width: 80px;
+            bottom: -6px;
+            left: 20px;
+            width: 70px;
             height: auto;
-            max-height: 70px;
+            max-height: 65px;
             object-fit: contain;
             z-index: 1;
             pointer-events: none;
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+            transform-origin: top center;
+            animation: noteSwing 2.5s ease-in-out infinite;
         }
         .live-custom-message-banner .custom-message-title { font-size: 32px; font-weight: 800; }
         .live-custom-message-banner .custom-message-content { font-size: 22px; opacity: 0.95; max-width: 80%; line-height: 1.5; }
@@ -715,14 +721,14 @@
             <span id="liveTotalBannerPercent" style="display:none;"></span>
         </div>
         <div class="live-emergency-banner" id="liveEmergencyBanner">
-            <img class="banner-note-img" src="https://drive.google.com/uc?export=view&id=1ggcLKRSusjvnuJ0fOp-B4dGmkgA3NSa9" alt="תלוי על חוט">
+            <img class="banner-note-img" src="talui-note.png" alt="תלוי על חוט" onerror="this.onerror=null; this.src='https://drive.google.com/uc?export=view&id=1ggcLKRSusjvnuJ0fOp-B4dGmkgA3NSa9';">
             <span class="emergency-title">⚠️ פיקוד הגורף</span>
             <span class="emergency-cities" id="emergencyCities"></span>
             <span class="emergency-instructions" id="emergencyInstructions"></span>
             <span class="emergency-countdown" id="emergencyCountdown"></span>
         </div>
         <div class="live-custom-message-banner" id="liveCustomMessageBanner">
-            <img class="banner-note-img" src="https://drive.google.com/uc?export=view&id=1ggcLKRSusjvnuJ0fOp-B4dGmkgA3NSa9" alt="תלוי על חוט">
+            <img class="banner-note-img" src="talui-note.png" alt="תלוי על חוט" onerror="this.onerror=null; this.src='https://drive.google.com/uc?export=view&id=1ggcLKRSusjvnuJ0fOp-B4dGmkgA3NSa9';">
             <span class="custom-message-title" id="customMessageTitle"></span>
             <span class="custom-message-content" id="customMessageContent"></span>
             <span class="custom-message-countdown" id="customMessageCountdown"></span>
